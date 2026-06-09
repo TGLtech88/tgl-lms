@@ -37,9 +37,14 @@ export function AdminLayout() {
   const SidebarContent = () => (
     <>
       <div className="p-8 flex-1 overflow-y-auto">
-        <div className="flex items-center gap-2 mb-12">
-          <div className="w-8 h-8 bg-[#2563EB] rounded-lg flex items-center justify-center font-bold text-lg text-white">T</div>
-          <span className="text-xl font-bold tracking-tight text-white">TGL Tech</span>
+        <div className="flex items-center gap-2 mb-5">
+          <div className="-mx-8 mb-6">
+  <img
+    src="/logo.jpg"
+    alt="TGL Technologies"
+    className="w-full h-auto object-contain px-4"
+  />
+</div>
         </div>
 
         <nav className="space-y-6">

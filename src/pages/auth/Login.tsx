@@ -80,11 +80,15 @@ export default function Login() {
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         <div className="flex flex-col items-center justify-center text-center space-y-2 mb-8">
-          <div className="w-16 h-16 bg-[#2563EB] rounded-2xl flex items-center justify-center font-bold text-3xl text-white mb-4">
-            T
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">TGL Tech</h1>
-          <p className="text-slate-500 font-medium tracking-wide">Learning Management System</p>
+        <div className="w-64 md:w-80 lg:w-96 mb-6 flex justify-center">
+         <img
+  src="/logot.png"
+  alt="Logo"
+  className="w-[220px] h-auto object-contain"
+/>
+        </div>
+          {/* <h1 className="text-3xl font-bold tracking-tight text-slate-900">TGL Tech</h1> */}
+          <p className="text-slate-500 font-medium tracking-wide">Internship Portal</p>
         </div>
 
         <Card>

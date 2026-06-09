@@ -85,16 +85,15 @@ export default function AdminStudents() {
                     {student.created_at ? new Date(student.created_at).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        window.open(`mailto:${student.email}`, '_top');
-                      }} 
+                    <a 
+                      href={`mailto:${student.email}`}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-bold transition-colors hover:bg-slate-100 hover:text-[#2563EB] h-9 px-3"
                       title="Email Student"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <Mail className="h-4 w-4" />
-                    </Button>
+                    </a>
                     <Button 
                       variant="ghost" 
                       size="sm" 

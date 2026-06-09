@@ -279,14 +279,15 @@ export default function BatchDetail() {
                 <Copy className="h-4 w-4 text-slate-500" />
                 Copy
               </Button>
-              <Button onClick={() => {
-                const subject = encodeURIComponent('Your New App Credentials');
-                const body = encodeURIComponent(`Hello ${newStudent.name},\n\nYour account has been created successfully. Here are your login credentials:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nPlease keep these safe and change your password upon logging in.\n\nRegards,\nTGL Tech Team`);
-                window.open(`mailto:${credentials.email}?subject=${subject}&body=${body}`, '_top');
-              }} className="flex-1 gap-2 bg-[#2563EB] hover:bg-blue-700 text-white">
+              <a 
+                href={`mailto:${credentials.email}?subject=${encodeURIComponent('Your New App Credentials')}&body=${encodeURIComponent(`Hello ${newStudent.name},\n\nYour account has been created successfully. Here are your login credentials:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nPlease keep these safe and change your password upon logging in.\n\nRegards,\nTGL Tech Team`)}`}
+                className="flex-1 inline-flex flex-row items-center justify-center whitespace-nowrap rounded-xl text-sm font-bold transition-colors bg-[#2563EB] hover:bg-blue-700 text-white h-10 px-4 py-2 gap-2"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Mail className="h-4 w-4" />
                 Email Student
-              </Button>
+              </a>
             </div>
           </div>
         )}
