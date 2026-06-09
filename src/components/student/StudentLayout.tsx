@@ -100,7 +100,7 @@ export function StudentLayout() {
         {/* Desktop Top Header */}
         <header className="hidden lg:flex h-20 bg-white border-b items-center justify-between px-10 shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Welcome back, {profile.full_name?.split(' ')[0]}! 👋</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Hello, {profile.full_name?.split(' ')[0]}! 👋</h2>
             <p className="text-sm text-slate-500 font-medium">Student Portal</p>
           </div>
           <div className="flex items-center gap-4">
