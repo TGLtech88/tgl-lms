@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { formatDate } from "../lib/utils";
 
 interface ReportExportModalProps {
   onClose: () => void;
@@ -192,7 +193,7 @@ export function ReportExportModal({
                   .map(
                     (j) => `
             <div style="margin-bottom: 20px;">
-              <h3 style="font-size: 12pt; font-weight: bold; background: #f0f0f0; padding: 5px;">Date: ${new Date(j.date).toLocaleDateString()}</h3>
+              <h3 style="font-size: 12pt; font-weight: bold; background: #f0f0f0; padding: 5px;">Date: ${formatDate(j.date)}</h3>
               <div>${j.activities_performed || "No activities logged."}</div>
             </div>
           `,

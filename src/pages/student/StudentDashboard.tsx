@@ -22,6 +22,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { formatDate } from "../../lib/utils";
 
 export default function StudentDashboard() {
   const { profile } = useAuthStore();
@@ -283,7 +284,7 @@ export default function StudentDashboard() {
                           <BookOpen className="h-5 w-5" />
                         </div>
                         <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md">
-                          {new Date(post.release_date).toLocaleDateString()}
+                          {formatDate(post.release_date)}
                         </span>
                       </div>
                       <h3 className="font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-colors">
@@ -330,7 +331,7 @@ export default function StudentDashboard() {
                             </span>
                             <span className="ml-2">
                               Releases{" "}
-                              {new Date(post.release_date).toLocaleDateString()}
+                              {formatDate(post.release_date)}
                             </span>
                           </div>
                         </div>
@@ -370,7 +371,7 @@ export default function StudentDashboard() {
                     <div className="flex justify-between items-start mb-1 gap-2 pl-2">
                       <h5 className="text-sm font-bold text-slate-800 line-clamp-1">{announcement.title}</h5>
                       <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">
-                        {new Date(announcement.created_at).toLocaleDateString()}
+                        {formatDate(announcement.created_at)}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 line-clamp-2 pl-2">
@@ -558,7 +559,7 @@ export default function StudentDashboard() {
               {selectedAnnouncement?.type}
             </span>
             <span className="text-sm text-slate-500">
-              {selectedAnnouncement && new Date(selectedAnnouncement.created_at).toLocaleDateString()}
+              {selectedAnnouncement && formatDate(selectedAnnouncement.created_at)}
             </span>
           </div>
           <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">

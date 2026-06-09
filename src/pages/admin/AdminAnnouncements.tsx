@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { formatDate } from '../../lib/utils';
 
 export default function AdminAnnouncements() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -145,7 +146,7 @@ export default function AdminAnnouncements() {
               <p className="text-sm text-slate-600 mb-4 whitespace-pre-wrap flex-1">{announcement.content}</p>
               <div className="pt-4 mt-auto border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-slate-400">
-                  {new Date(announcement.created_at).toLocaleDateString()}
+                  {formatDate(announcement.created_at)}
                 </span>
                 {(profile?.role === 'super_admin' || announcement.type !== 'assignment') && (
                   <button

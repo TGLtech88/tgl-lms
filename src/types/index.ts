@@ -5,6 +5,10 @@ export interface Profile {
   full_name: string;
   email: string;
   role: Role;
+  college?: string | null;
+  branch?: string | null;
+  semester?: string | null;
+  phone?: string | null;
   created_at?: string;
 }
 

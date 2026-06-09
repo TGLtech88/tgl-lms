@@ -6,6 +6,7 @@ import { Dialog } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/utils';
 
 export default function ContentScheduler() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -245,7 +246,7 @@ export default function ContentScheduler() {
                   <tr key={post.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{post.title}</td>
                     <td className="px-6 py-4 text-slate-600">{post.batches?.name}</td>
-                    <td className="px-6 py-4 text-slate-600">{new Date(post.release_date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-slate-600">{formatDate(post.release_date)}</td>
                     <td className="px-6 py-4">
                       <button 
                         onClick={() => togglePublished(post)}
@@ -270,134 +271,171 @@ export default function ContentScheduler() {
         </div>
       </div>
 
-      <Dialog isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title={editingPostId ? "Edit Content" : "Schedule Content"}>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Day 1: HTML Basics" />
+      <Dialog isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title={editingPostId ? "Edit Content" : "Schedule Content"} className="max-w-3xl">
+        <form onSubmit={handleSubmit} className="space-y-5 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Day 1: HTML Basics" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="batch">Batch</Label>
+              <select 
+                id="batch" 
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                value={formData.batch_id}
+                onChange={e => setFormData({...formData, batch_id: e.target.value})}
+                required
+              >
+                <option value="">Select a batch...</option>
+                {batches.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <textarea 
+                id="description" 
+                className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                value={formData.description} 
+                onChange={e => setFormData({...formData, description: e.target.value})} 
+                placeholder="Optional description of this module" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="release">Release Date</Label>
+              <Input id="release" type="date" required value={formData.release_date} onChange={e => setFormData({...formData, release_date: e.target.value})} />
+            </div>
+            <div className="space-y-2 flex items-end">
+              <div className="flex items-center space-x-2 h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg w-full">
+                <input 
+                  type="checkbox" 
+                  id="publish" 
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={formData.is_published}
+                  onChange={e => setFormData({...formData, is_published: e.target.checked})}
+                />
+                <Label htmlFor="publish" className="text-sm font-medium cursor-pointer flex-1">Publish immediately upon release</Label>
+              </div>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="batch">Batch</Label>
-            <select 
-              id="batch" 
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              value={formData.batch_id}
-              onChange={e => setFormData({...formData, batch_id: e.target.value})}
-              required
-            >
-              <option value="">Select a batch...</option>
-              {batches.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="release">Release Date</Label>
-            <Input id="release" type="date" required value={formData.release_date} onChange={e => setFormData({...formData, release_date: e.target.value})} />
-          </div>
-          <div className="space-y-4 pt-2 border-t border-slate-200">
-             <div className="flex justify-between items-center">
-               <Label>Attachments / Links</Label>
-               <Button type="button" variant="outline" size="sm" onClick={() => {
+          <div className="space-y-4 pt-4 border-t border-slate-200">
+             <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+               <Label className="px-2 font-bold text-slate-700">Attachments / Links</Label>
+               <Button type="button" variant="outline" size="sm" className="bg-white" onClick={() => {
                  setFormData(prev => ({
                    ...prev,
                    attachments: [...prev.attachments, { type: 'link', url: '', title: '' }]
                  }));
-               }}>Add Attachment
+               }}>
+                 <Plus className="h-4 w-4 mr-1" /> Add Attachment
                </Button>
              </div>
-             {formData.attachments.map((att, i) => (
-               <div key={i} className="flex gap-2">
-                 <select 
-                   className="rounded-md border border-slate-200 text-sm px-2"
-                   value={att.type}
-                   onChange={e => {
-                     const newAtts = [...formData.attachments];
-                     newAtts[i].type = e.target.value;
-                     setFormData({...formData, attachments: newAtts});
-                   }}
-                 >
-                   <option value="link">Web Link</option>
-                   <option value="youtube">YouTube Video</option>
-                   <option value="upload">File/Archive Upload (ZIP, PDF, PPT, Doc)</option>
-                 </select>
-                 <Input className="flex-1" placeholder="Title" value={att.title} onChange={e => {
-                     const newAtts = [...formData.attachments];
-                     newAtts[i].title = e.target.value;
-                     setFormData({...formData, attachments: newAtts});
-                 }} />
-                 
-                 {att.type === 'upload' ? (
-                   <div className="flex-1 flex items-center gap-2">
-                     {att.url ? (
-                       <span className="text-xs text-green-600 font-medium truncate max-w-[150px]">Uploaded: {att.title || 'File'}</span>
+             <div className="space-y-3 max-h-[30vh] overflow-y-auto px-1 pb-1">
+               {formData.attachments.length === 0 && (
+                 <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-xl">
+                   No attachments yet. Click "Add Attachment" to include resources.
+                 </div>
+               )}
+               {formData.attachments.map((att, i) => (
+                 <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative group overflow-hidden">
+                   <div className="flex flex-col sm:flex-row w-full gap-3">
+                     <select 
+                       className="rounded-md border border-slate-200 text-sm px-2 h-10 w-full sm:w-1/4 min-w-[120px]"
+                       value={att.type}
+                       onChange={e => {
+                         const newAtts = [...formData.attachments];
+                         newAtts[i].type = e.target.value;
+                         setFormData({...formData, attachments: newAtts});
+                       }}
+                     >
+                       <option value="link">Web Link</option>
+                       <option value="youtube">YouTube Video</option>
+                       <option value="upload">File/Archive (Upload)</option>
+                     </select>
+                     <Input className="flex-1 w-full" placeholder="Resource Title" value={att.title} onChange={e => {
+                         const newAtts = [...formData.attachments];
+                         newAtts[i].title = e.target.value;
+                         setFormData({...formData, attachments: newAtts});
+                     }} />
+                     
+                     {att.type === 'upload' ? (
+                       <div className="flex-1 w-full flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                         {att.url ? (
+                           <div className="flex items-center gap-2 w-full">
+                             <div className="text-xs text-blue-700 font-medium truncate flex-1 p-2.5 bg-blue-50 rounded-md border border-blue-100 flex items-center gap-2">
+                               <FileUp className="h-3.5 w-3.5" />
+                               {att.title || 'Uploaded File'}
+                             </div>
+                             <Button type="button" variant="outline" size="sm" onClick={() => {
+                               const newAtts = [...formData.attachments];
+                               newAtts[i].url = '';
+                               setFormData({...formData, attachments: newAtts});
+                             }}>Replace</Button>
+                           </div>
+                         ) : (
+                           <label className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 cursor-pointer overflow-hidden group">
+                             <div className="flex items-center gap-2 whitespace-nowrap">
+                               <FileUp className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                               <span>Choose file...</span>
+                             </div>
+                             <input 
+                               type="file" 
+                               className="hidden" 
+                               onChange={async (e) => {
+                                 const file = e.target.files?.[0];
+                                 if (!file) return;
+                                 
+                                 toast.info("Uploading file...");
+                                 const fileExt = file.name.split('.').pop();
+                                 const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+                                 const filePath = `attachments/${fileName}`;
+                                 
+                                 const { error: uploadError } = await supabase.storage
+                                   .from('content_files')
+                                   .upload(filePath, file);
+                                   
+                                 if (uploadError) {
+                                   toast.error("Upload failed: " + uploadError.message);
+                                   return;
+                                 }
+                                 
+                                 const { data } = supabase.storage.from('content_files').getPublicUrl(filePath);
+                                 
+                                 const newAtts = [...formData.attachments];
+                                 newAtts[i].url = data.publicUrl;
+                                 if (!newAtts[i].title) newAtts[i].title = file.name;
+                                 setFormData({...formData, attachments: newAtts});
+                                 toast.success("File uploaded successfully");
+                               }} 
+                             />
+                           </label>
+                         )}
+                       </div>
                      ) : (
-                       <Input 
-                         type="file" 
-                         className="flex-1 text-xs" 
-                         onChange={async (e) => {
-                           const file = e.target.files?.[0];
-                           if (!file) return;
-                           
-                           toast.info("Uploading file...");
-                           const fileExt = file.name.split('.').pop();
-                           const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-                           const filePath = `attachments/${fileName}`;
-                           
-                           const { error: uploadError } = await supabase.storage
-                             .from('content_files')
-                             .upload(filePath, file);
-                             
-                           if (uploadError) {
-                             toast.error("Upload failed: " + uploadError.message);
-                             return;
-                           }
-                           
-                           const { data } = supabase.storage.from('content_files').getPublicUrl(filePath);
-                           
+                       <Input className="flex-1 w-full" placeholder="https://..." value={att.url} onChange={e => {
                            const newAtts = [...formData.attachments];
-                           newAtts[i].url = data.publicUrl;
-                           if (!newAtts[i].title) newAtts[i].title = file.name;
+                           newAtts[i].url = e.target.value;
                            setFormData({...formData, attachments: newAtts});
-                           toast.success("File uploaded successfully");
-                         }} 
-                       />
-                     )}
-                     {att.url && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => {
-                          const newAtts = [...formData.attachments];
-                          newAtts[i].url = '';
-                          setFormData({...formData, attachments: newAtts});
-                        }}>Replace</Button>
+                       }} />
                      )}
                    </div>
-                 ) : (
-                   <Input className="flex-1" placeholder="URL" value={att.url} onChange={e => {
-                       const newAtts = [...formData.attachments];
-                       newAtts[i].url = e.target.value;
-                       setFormData({...formData, attachments: newAtts});
-                   }} />
-                 )}
-
-                 <Button type="button" variant="ghost" size="icon" className="text-red-500" onClick={() => {
-                    const newAtts = formData.attachments.filter((_, idx) => idx !== i);
-                    setFormData({...formData, attachments: newAtts});
-                 }}>
-                   <Trash2 className="h-4 w-4" />
-                 </Button>
-               </div>
-             ))}
+                   
+                   <div className="w-full sm:w-auto flex justify-end">
+                     <Button type="button" variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full sm:w-auto" onClick={() => {
+                        const newAtts = formData.attachments.filter((_, idx) => idx !== i);
+                        setFormData({...formData, attachments: newAtts});
+                     }}>
+                       <Trash2 className="h-4 w-4 mr-2 sm:mr-0 inline sm:hidden" />
+                       <span className="sm:hidden">Remove Attachment</span>
+                       <Trash2 className="h-4 w-4 hidden sm:block" />
+                     </Button>
+                   </div>
+                 </div>
+               ))}
+             </div>
           </div>
-          <div className="flex items-center space-x-2 mt-4 pt-4 border-t border-slate-200">
-            <input 
-              type="checkbox" 
-              id="publish" 
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              checked={formData.is_published}
-              onChange={e => setFormData({...formData, is_published: e.target.checked})}
-            />
-            <Label htmlFor="publish">Publish immediately upon release</Label>
-          </div>
-          <div className="flex justify-end pt-4">
-            <Button type="submit" isLoading={isSubmitting}>{editingPostId ? "Update Post" : "Schedule Post"}</Button>
+          <div className="flex justify-end pt-4 mt-2 border-t border-slate-200">
+            <Button type="submit" isLoading={isSubmitting} size="lg" className="w-full sm:w-auto">{editingPostId ? "Save Changes" : "Schedule Content"}</Button>
           </div>
         </form>
       </Dialog>

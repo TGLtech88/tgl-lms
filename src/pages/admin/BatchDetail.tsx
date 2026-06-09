@@ -10,6 +10,7 @@ import { Label } from '../../components/ui/label';
 import { Dialog } from '../../components/ui/dialog';
 import { ArrowLeft, UserPlus, FileText, CheckSquare, Loader2, Copy, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/utils';
 
 export default function BatchDetail() {
   const { id } = useParams();
@@ -19,7 +20,7 @@ export default function BatchDetail() {
   const [loading, setLoading] = useState(true);
   
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', college: '', branch: '', semester: '', phone: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{email: string, password: string} | null>(null);
@@ -93,17 +94,20 @@ export default function BatchDetail() {
       const userId = authData.user?.id;
       if (!userId) throw new Error('User creation failed (no ID returned)');
 
-      // Attempt to ensure the profile exists in case the database trigger wasn't run
-      const { error: profileError } = await supabase.from('profiles').insert([{
+      // Update the profile to include the new custom fields (since trigger might have already created it)
+      const { error: profileUpsertError } = await supabase.from('profiles').upsert([{
         id: userId,
         full_name: newStudent.name,
         email: newStudent.email,
-        role: 'student'
+        role: 'student',
+        college: newStudent.college || null,
+        branch: newStudent.branch || null,
+        semester: newStudent.semester || null,
+        phone: newStudent.phone || null
       }]);
 
-      // If error is not a duplication error, we throw it
-      if (profileError && profileError.code !== '23505') {
-        throw profileError;
+      if (profileUpsertError) {
+        throw profileUpsertError;
       }
 
       // Now we enroll them in the batch
@@ -203,7 +207,7 @@ export default function BatchDetail() {
                       <tr key={student.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-medium text-slate-900">{student.profiles?.full_name}</td>
                         <td className="px-4 py-3 text-slate-600">{student.profiles?.email}</td>
-                        <td className="px-4 py-3 text-slate-600">{new Date(student.enrolled_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-slate-600">{formatDate(student.enrolled_at)}</td>
                         <td className="px-4 py-3 text-right space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => setStudentToRemove(student.id)} className="text-red-500 hover:text-red-600">
                             Remove
@@ -239,20 +243,38 @@ export default function BatchDetail() {
         if (!isSubmitting) {
           setIsAddStudentOpen(false);
           setCredentials(null);
-          setNewStudent({ name: '', email: '' });
+          setNewStudent({ name: '', email: '', college: '', branch: '', semester: '', phone: '' });
         }
       }} title="Add New Student">
         {!credentials ? (
           <form onSubmit={handleAddStudent} className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="s_name">Full Name</Label>
-              <Input id="s_name" required value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} placeholder="John Doe" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="s_name">Full Name</Label>
+                <Input id="s_name" required value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} placeholder="John Doe" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s_email">Email Address</Label>
+                <Input id="s_email" type="email" required value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} placeholder="john.doe@gmail.com" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s_phone">Phone Number (optional)</Label>
+                <Input id="s_phone" value={newStudent.phone} onChange={e => setNewStudent({...newStudent, phone: e.target.value})} placeholder="+1 234 567 8900" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s_college">College / University (optional)</Label>
+                <Input id="s_college" value={newStudent.college} onChange={e => setNewStudent({...newStudent, college: e.target.value})} placeholder="State University" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s_branch">Branch / Major (optional)</Label>
+                <Input id="s_branch" value={newStudent.branch} onChange={e => setNewStudent({...newStudent, branch: e.target.value})} placeholder="Computer Science" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s_semester">Current Semester (optional)</Label>
+                <Input id="s_semester" value={newStudent.semester} onChange={e => setNewStudent({...newStudent, semester: e.target.value})} placeholder="6th" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="s_email">Email Address</Label>
-              <Input id="s_email" type="email" required value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} placeholder="john.doe@gmail.com" />
-            </div>
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-4 border-t border-slate-100">
               <Button type="submit" isLoading={isSubmitting}>Create Account</Button>
             </div>
           </form>

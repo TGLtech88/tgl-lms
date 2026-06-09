@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Users, BookOpen, CheckSquare, Layers, ArrowLeft, Activity, FileText, CheckCircle2, ChevronRight, User } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/utils';
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,7 @@ export default function AdminDashboard() {
 
       setBatchStats({
         totalStudents: students.length,
-        activeStudents: uniqueActive, // those who submitted journals recently
+        //activeStudents: uniqueActive, // those who submitted journals recently
         reportsSubmitted: submittedCount,
         reportsPending: pendingCount
       });
@@ -385,7 +386,7 @@ export default function AdminDashboard() {
                         <div key={report.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-start">
                           <div>
                             <h4 className="font-semibold text-slate-800 text-sm">{report.title || "Untitled Report"}</h4>
-                            <span className="text-xs text-slate-500">{new Date(report.updated_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-slate-500">{formatDate(report.updated_at)}</span>
                           </div>
                           <span className={`px-2 py-1 rounded-md text-xs font-medium 
                             ${report.status === 'Approved' ? 'bg-green-100 text-green-700' : 

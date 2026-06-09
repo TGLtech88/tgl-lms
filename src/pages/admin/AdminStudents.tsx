@@ -3,13 +3,25 @@ import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
-import { Trash2, Loader2, Mail } from 'lucide-react';
+import { Trash2, Loader2, Mail, Edit, Phone, Building2, BookOpen, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/utils';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 export default function AdminStudents() {
   const [students, setStudents] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null);
+  
+  const [editingStudent, setEditingStudent] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({
+    college: '',
+    branch: '',
+    semester: '',
+    phone: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -24,12 +36,55 @@ export default function AdminStudents() {
         .eq('role', 'student')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      // @ts-ignore - ignore the case where columns don't exist yet but no error thrown
+      if (error && error.code !== 'PGRST204') throw error;
       setStudents(data || []);
     } catch (error: any) {
       toast.error('Failed to load students: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditClick = (student: Profile) => {
+    setEditingStudent(student);
+    setEditForm({
+      college: student.college || '',
+      branch: student.branch || '',
+      semester: student.semester || '',
+      phone: student.phone || ''
+    });
+  };
+
+  const handleSaveStudent = async () => {
+    if (!editingStudent) return;
+    try {
+      setIsSubmitting(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          college: editForm.college,
+          branch: editForm.branch,
+          semester: editForm.semester,
+          phone: editForm.phone
+        })
+        .eq('id', editingStudent.id);
+
+      if (error) {
+        if (error.message.includes('column') && error.message.includes('does not exist')) {
+          toast.error('Database columns missing. Please ask to run the SQL to add these columns first.');
+          return;
+        }
+        throw error;
+      }
+      
+      toast.success(`Details for ${editingStudent.full_name} updated.`);
+      setEditingStudent(null);
+      fetchStudents();
+    } catch (error: any) {
+      toast.error('Failed to update student: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -57,7 +112,7 @@ export default function AdminStudents() {
         <p className="text-sm text-slate-500 mt-1">Manage global student profiles</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -67,27 +122,57 @@ export default function AdminStudents() {
             <p>No students found in the system.</p>
           </div>
         ) : (
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4">Name</th>
-                <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Joined Date</th>
+                <th className="px-6 py-4">Name & Email</th>
+                <th className="px-6 py-4">Contact</th>
+                <th className="px-6 py-4">Academic Info</th>
+                <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {students.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">{student.full_name}</td>
-                  <td className="px-6 py-4 text-slate-600">{student.email}</td>
-                  <td className="px-6 py-4 text-slate-600">
-                    {student.created_at ? new Date(student.created_at).toLocaleDateString() : 'N/A'}
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-900">{student.full_name}</div>
+                    <div className="text-slate-500 text-xs mt-0.5">{student.email}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center text-slate-700">
+                      <Phone className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                      {student.phone || <span className="text-slate-400 italic">No phone</span>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center text-slate-700 text-xs">
+                        <Building2 className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                        {student.college || <span className="text-slate-400 italic">No college</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs mt-1">
+                        <span className="flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                          <BookOpen className="w-3 h-3 mr-1" />
+                          {student.branch || '?'}
+                        </span>
+                        <span className="flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <GraduationCap className="w-3 h-3 mr-1" />
+                          Sem: {student.semester || '?'}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-xs text-slate-500">Joined</div>
+                    <div className="font-medium text-slate-700">
+                      {student.created_at ? formatDate(student.created_at) : 'N/A'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <a 
                       href={`https://mail.google.com/mail/?view=cm&fs=1&to=${student.email}`}
-                      className="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-bold transition-colors hover:bg-slate-100 hover:text-[#2563EB] h-9 px-3"
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-bold transition-colors hover:bg-slate-100 hover:text-blue-600 h-9 w-9"
                       title="Email Student"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -96,9 +181,18 @@ export default function AdminStudents() {
                     </a>
                     <Button 
                       variant="ghost" 
-                      size="sm" 
+                      size="icon" 
+                      onClick={() => handleEditClick(student)} 
+                      className="text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                      title="Edit Details"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
                       onClick={() => setStudentToDelete({id: student.id, name: student.full_name})} 
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="text-slate-500 hover:text-red-600 hover:bg-red-50"
                       title="Delete Student"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -110,6 +204,62 @@ export default function AdminStudents() {
           </table>
         )}
       </div>
+
+      <Dialog isOpen={!!editingStudent} onClose={() => !isSubmitting && setEditingStudent(null)} title="Edit Student Details">
+        <div className="space-y-4">
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
+            <h3 className="font-bold text-slate-800">{editingStudent?.full_name}</h3>
+            <p className="text-sm text-slate-500">{editingStudent?.email}</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input 
+                id="phone" 
+                value={editForm.phone} 
+                onChange={(e) => setEditForm({...editForm, phone: e.target.value})} 
+                placeholder="+1 234 567 8900"
+              />
+            </div>
+            
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="college">College / University</Label>
+              <Input 
+                id="college" 
+                value={editForm.college} 
+                onChange={(e) => setEditForm({...editForm, college: e.target.value})} 
+                placeholder="e.g. State University"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="branch">Branch / Major</Label>
+              <Input 
+                id="branch" 
+                value={editForm.branch} 
+                onChange={(e) => setEditForm({...editForm, branch: e.target.value})} 
+                placeholder="e.g. Computer Science"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="semester">Current Semester</Label>
+              <Input 
+                id="semester" 
+                value={editForm.semester} 
+                onChange={(e) => setEditForm({...editForm, semester: e.target.value})} 
+                placeholder="e.g. 6th"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setEditingStudent(null)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleSaveStudent} isLoading={isSubmitting}>Save Details</Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog isOpen={!!studentToDelete} onClose={() => setStudentToDelete(null)} title="Delete Student">
         <div className="space-y-4">
