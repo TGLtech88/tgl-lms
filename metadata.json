@@ -1,0 +1,6 @@
+{
+  "name": "TGL Technologies LMS",
+  "description": "Learning Management System for TGL Technologies",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

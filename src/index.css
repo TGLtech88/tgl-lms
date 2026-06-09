@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Custom Quill Editor Styles */
+.ql-wrapper-custom .quill {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0; /* Important for flex child to shrink/grow properly */
+}
+.ql-wrapper-custom .ql-toolbar {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  background-color: #f8fafc;
+  padding-right: 48px !important; /* Buffer for fullscreen button */
+  flex-shrink: 0;
+}
+.ql-wrapper-custom .ql-container {
+  flex: 1 !important;
+  height: auto !important;
+  overflow-y: auto;
+  border: none !important;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+  font-family: inherit !important;
+  font-size: 0.95rem !important;
+}
+.ql-wrapper-custom .ql-editor {
+  min-height: 100%;
+}
+.ql-wrapper-custom .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
