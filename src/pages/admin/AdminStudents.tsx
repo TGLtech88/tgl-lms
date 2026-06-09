@@ -86,7 +86,7 @@ export default function AdminStudents() {
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <a 
-                      href={`mailto:${student.email}`}
+                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${student.email}`}
                       className="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-bold transition-colors hover:bg-slate-100 hover:text-[#2563EB] h-9 px-3"
                       title="Email Student"
                       target="_blank"

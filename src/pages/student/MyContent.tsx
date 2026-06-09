@@ -16,6 +16,7 @@ import {
   Menu,
   CheckCircle2,
   Circle,
+  Archive,
 } from "lucide-react";
 import { formatDate } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
@@ -198,8 +199,10 @@ export default function MyContent() {
           </div>
         );
       }
-    } else if (type === "upload" || type === "pdf" || type === "document") {
+    } else if (type === "upload" || type === "pdf" || type === "document" || type === "zip") {
       const isPdf = url.toLowerCase().includes(".pdf") || type === "pdf";
+      const isArchive = url.toLowerCase().includes(".zip") || url.toLowerCase().includes(".rar") || url.toLowerCase().includes(".7z") || type === "zip";
+      
       if (isPdf) {
         embedContent = (
           <div className="flex flex-col items-center justify-center h-full bg-white rounded-2xl border border-slate-200">
@@ -217,6 +220,28 @@ export default function MyContent() {
               className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition"
             >
               Open PDF Document
+            </a>
+          </div>
+        );
+      } else if (isArchive) {
+        embedContent = (
+          <div className="flex flex-col items-center justify-center h-full bg-white rounded-2xl border border-slate-200">
+            <Archive className="h-16 w-16 text-yellow-500 mb-4" />
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Compressed Folders / Archive
+            </h3>
+            <p className="text-slate-500 mb-6 max-w-md text-center">
+              Click below to download this archive file and extract it on your device.
+            </p>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              download
+              className="bg-yellow-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-yellow-700 transition flex items-center gap-2"
+            >
+              <Archive className="h-5 w-5" />
+              Download Archive
             </a>
           </div>
         );

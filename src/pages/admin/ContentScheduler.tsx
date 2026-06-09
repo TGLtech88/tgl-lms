@@ -317,7 +317,7 @@ export default function ContentScheduler() {
                  >
                    <option value="link">Web Link</option>
                    <option value="youtube">YouTube Video</option>
-                   <option value="upload">File Upload (PDF, PPT, Doc, etc)</option>
+                   <option value="upload">File/Archive Upload (ZIP, PDF, PPT, Doc)</option>
                  </select>
                  <Input className="flex-1" placeholder="Title" value={att.title} onChange={e => {
                      const newAtts = [...formData.attachments];

@@ -280,7 +280,7 @@ export default function BatchDetail() {
                 Copy
               </Button>
               <a 
-                href={`mailto:${credentials.email}?subject=${encodeURIComponent('Your New App Credentials')}&body=${encodeURIComponent(`Hello ${newStudent.name},\n\nYour account has been created successfully. Here are your login credentials:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nPlease keep these safe and change your password upon logging in.\n\nRegards,\nTGL Tech Team`)}`}
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${credentials.email}&su=${encodeURIComponent('Your New App Credentials')}&body=${encodeURIComponent(`Hello ${newStudent.name},\n\nYour account has been created successfully. Here are your login credentials:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nPlease keep these safe and change your password upon logging in.\n\nRegards,\nTGL Tech Team`)}`}
                 className="flex-1 inline-flex flex-row items-center justify-center whitespace-nowrap rounded-xl text-sm font-bold transition-colors bg-[#2563EB] hover:bg-blue-700 text-white h-10 px-4 py-2 gap-2"
                 target="_blank"
                 rel="noopener noreferrer"
