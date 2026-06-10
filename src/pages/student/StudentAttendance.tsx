@@ -50,7 +50,7 @@ export default function StudentAttendance() {
         const batchId = batchQuery.batch_id;
         const today = new Date().toISOString().split("T")[0];
 
-        const [activeRes, historyRes] = await Promise.all([
+        const [activeRes, sessionsRes, recordsRes] = await Promise.all([
           supabase
             .from("attendance_sessions")
             .select("*, content_posts(title)")
@@ -59,17 +59,31 @@ export default function StudentAttendance() {
             .eq("is_open", true)
             .maybeSingle(),
           supabase
+            .from("attendance_sessions")
+            .select("*, content_posts(title)")
+            .eq("batch_id", batchId)
+            .order("created_at", { ascending: false }),
+          supabase
             .from("attendance_records")
-            .select(
-              "*, attendance_sessions(session_date, content_posts(title))",
-            )
+            .select("*")
             .eq("student_id", profile.id)
-            .order("marked_at", { ascending: false }),
         ]);
+
+        const history = sessionsRes.data?.map(session => {
+          const record = recordsRes.data?.find(r => r.session_id === session.id);
+          return {
+            id: session.id,
+            session_date: session.session_date,
+            content_posts: session.content_posts,
+            is_open: session.is_open,
+            code_expires_at: session.code_expires_at,
+            record: record || null
+          };
+        }) || [];
 
         setData({
           activeSession: activeRes.data,
-          history: historyRes.data || [],
+          history: history,
         });
       }
     } catch (err) {
@@ -136,7 +150,7 @@ export default function StudentAttendance() {
     );
 
   const totalSessions = data.history.length;
-  const presentCount = data.history.filter((h: any) => h.is_approved).length;
+  const presentCount = data.history.filter((h: any) => h.record && h.record.is_approved).length;
 
   return (
     <div className="space-y-6">
@@ -235,24 +249,36 @@ export default function StudentAttendance() {
                   </td>
                 </tr>
               ) : (
-                data.history.map((record: any) => (
-                  <tr key={record.id} className="hover:bg-slate-50">
+                data.history.map((session: any) => (
+                  <tr key={session.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 font-medium text-slate-900">
-                      {formatDate(record.attendance_sessions.session_date)}
+                      {formatDate(session.session_date)}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {record.attendance_sessions.content_posts?.title ||
+                      {session.content_posts?.title ||
                         "Unknown Session"}
                     </td>
                     <td className="px-6 py-4">
-                      {record.is_approved ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Approved
-                        </span>
+                      {session.record ? (
+                        session.record.is_approved ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Present
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <Clock className="h-3.5 w-3.5" /> Pending Approval
+                          </span>
+                        )
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          <Clock className="h-3.5 w-3.5" /> Pending Approval
-                        </span>
+                        !session.is_open && new Date(session.code_expires_at) < new Date() ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            <XCircle className="h-3.5 w-3.5" /> Absent
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                            <Clock className="h-3.5 w-3.5" /> Not Marked Yet
+                          </span>
+                        )
                       )}
                     </td>
                   </tr>

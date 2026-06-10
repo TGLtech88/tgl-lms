@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
-import { Trash2, Loader2, Mail, Edit, Phone, Building2, BookOpen, GraduationCap } from 'lucide-react';
+import { Trash2, Loader2, Mail, Edit, Phone, Building2, BookOpen, GraduationCap, KeyRound, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/utils';
 import { Input } from '../../components/ui/input';
@@ -22,6 +22,9 @@ export default function AdminStudents() {
     phone: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [passwordResetData, setPasswordResetData] = useState<{id: string, name: string, email: string, newPassword?: string} | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -102,6 +105,28 @@ export default function AdminStudents() {
     } catch (error: any) {
       toast.error('Failed to delete student: ' + error.message);
       setStudentToDelete(null);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!passwordResetData) return;
+    try {
+      setIsResetting(true);
+      const newPassword = Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 10); // Generate simple secure password
+      
+      const { error } = await supabase.rpc('admin_update_user_password', { 
+        target_user_id: passwordResetData.id,
+        new_password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      setPasswordResetData({ ...passwordResetData, newPassword });
+      toast.success('Password successfully regenerated.');
+    } catch (error: any) {
+      toast.error('Failed to reset password: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -191,6 +216,15 @@ export default function AdminStudents() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
+                      onClick={() => setPasswordResetData({id: student.id, name: student.full_name, email: student.email})} 
+                      className="text-slate-500 hover:text-amber-600 hover:bg-amber-50"
+                      title="Reset Password"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
                       onClick={() => setStudentToDelete({id: student.id, name: student.full_name})} 
                       className="text-slate-500 hover:text-red-600 hover:bg-red-50"
                       title="Delete Student"
@@ -204,6 +238,51 @@ export default function AdminStudents() {
           </table>
         )}
       </div>
+
+      <Dialog isOpen={!!passwordResetData} onClose={() => !isResetting && setPasswordResetData(null)} title="Reset Student Password">
+        <div className="space-y-4">
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-4">
+            <h3 className="font-bold text-slate-800">{passwordResetData?.name}</h3>
+            <p className="text-sm text-slate-500">{passwordResetData?.email}</p>
+          </div>
+          
+          {!passwordResetData?.newPassword ? (
+             <>
+               <p className="text-slate-600 text-sm">
+                 You are about to regenerate the password for this student. They will be logged out of all active sessions and will need to use the new password to log back in.
+               </p>
+               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+                 <Button variant="outline" onClick={() => setPasswordResetData(null)} disabled={isResetting}>Cancel</Button>
+                 <Button onClick={handleResetPassword} isLoading={isResetting}>Generate New Password</Button>
+               </div>
+             </>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-50 text-green-700 p-4 rounded-lg border border-green-200">
+                <p className="font-medium mb-2 text-sm text-green-800">Password successfully reset!</p>
+                <div className="flex items-center justify-between bg-white p-3 rounded border border-green-100">
+                  <code className="text-green-900 font-bold tracking-wider">{passwordResetData.newPassword}</code>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white"
+                    onClick={() => {
+                       navigator.clipboard.writeText(`Your new password is: ${passwordResetData.newPassword}`);
+                       toast.success('Password copied to clipboard');
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2 text-slate-500" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="pt-2">
+                <Button className="w-full" onClick={() => setPasswordResetData(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Dialog>
 
       <Dialog isOpen={!!editingStudent} onClose={() => !isSubmitting && setEditingStudent(null)} title="Edit Student Details">
         <div className="space-y-4">

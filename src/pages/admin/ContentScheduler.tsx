@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/button';
-import { Plus, Calendar as CalendarIcon, FileUp, Loader2, Edit, Trash2 } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, FileUp, Loader2, Edit, Trash2, Eye, FileText, Link, ExternalLink } from 'lucide-react';
 import { Dialog } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
@@ -16,6 +16,7 @@ export default function ContentScheduler() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [previewPost, setPreviewPost] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -256,6 +257,9 @@ export default function ContentScheduler() {
                       </button>
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
+                      <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700" onClick={() => setPreviewPost(post)} title="Preview Content">
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600" onClick={() => handleOpenEdit(post)}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -512,6 +516,48 @@ export default function ContentScheduler() {
             <Button type="submit" isLoading={isSubmitting}>Upload & Schedule</Button>
           </div>
         </form>
+      </Dialog>
+      <Dialog isOpen={!!previewPost} onClose={() => setPreviewPost(null)} title="Preview Content">
+        <div className="space-y-4">
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <h3 className="font-bold text-slate-900 text-lg">{previewPost?.title}</h3>
+            {previewPost?.description && <p className="text-sm text-slate-600 mt-2">{previewPost?.description}</p>}
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-semibold text-slate-700">Attachments</h4>
+            {previewPost?.attachments && previewPost.attachments.length > 0 ? (
+              <div className="space-y-2">
+                {previewPost.attachments.map((att: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {att.type === 'upload' ? <FileText className="h-5 w-5 text-blue-500" /> : <Link className="h-5 w-5 text-blue-500" />}
+                      <span className="font-medium text-slate-800 truncate">{att.title || 'Attachment'}</span>
+                    </div>
+                    <a
+                      href={
+                        att.type === 'upload' && att.url && (att.url.toLowerCase().includes('.ppt') || att.url.toLowerCase().includes('.doc') || att.url.toLowerCase().includes('.xls'))
+                          ? `https://docs.google.com/viewer?url=${encodeURIComponent(att.url)}`
+                          : att.url
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap ml-4"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 italic text-sm">No attachments available.</p>
+            )}
+          </div>
+          <div className="flex justify-end pt-4 border-t border-slate-100">
+            <Button onClick={() => setPreviewPost(null)}>Close</Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

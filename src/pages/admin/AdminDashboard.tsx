@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Users, BookOpen, CheckSquare, Layers, ArrowLeft, Activity, FileText, CheckCircle2, ChevronRight, User } from 'lucide-react';
+import { Users, BookOpen, CheckSquare, Layers, ArrowLeft, Activity, FileText, CheckCircle2, ChevronRight, User, Download } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/utils';
@@ -122,18 +122,35 @@ export default function AdminDashboard() {
   async function loadStudentDetails(studentId: string) {
     setLoading(true);
     try {
-      const [attendTotalRes, attendRes, repRes, journalRes, contentTotalRes, contentProgressRes] = await Promise.all([
-        supabase.from('attendance_sessions').select('id', { count: 'exact', head: true }).eq('batch_id', selectedBatch.id),
-        supabase.from('attendance_records').select('is_approved, attendance_sessions!inner(batch_id)').eq('student_id', studentId).eq('attendance_sessions.batch_id', selectedBatch.id),
+      const [allSessionsRes, attendRes, repRes, journalRes, contentTotalRes, contentProgressRes] = await Promise.all([
+        supabase.from('attendance_sessions').select('id, session_date, content_posts(title), is_open, code_expires_at').eq('batch_id', selectedBatch.id).order('session_date', { ascending: false }),
+        supabase.from('attendance_records').select('session_id, is_approved, marked_at').eq('student_id', studentId),
         supabase.from('project_reports').select('*').eq('student_id', studentId).eq('batch_id', selectedBatch.id).order('updated_at', { ascending: false }),
         supabase.from('daily_journals').select('*').eq('student_id', studentId).eq('batch_id', selectedBatch.id).order('created_at', { ascending: false }).limit(10),
         supabase.from('content_posts').select('id', { count: 'exact', head: true }).eq('batch_id', selectedBatch.id),
         supabase.from('content_progress').select('post_id, content_posts!inner(batch_id)').eq('student_id', studentId).eq('content_posts.batch_id', selectedBatch.id)
       ]);
 
-      const attendance = attendRes.data || [];
-      const present = attendance.filter(a => a.is_approved).length;
-      const totalSessions = attendTotalRes.count || 0;
+      const allSessions = allSessionsRes.data || [];
+      const records = attendRes.data || [];
+      
+      const attendanceBreakdown = allSessions.map(session => {
+        const record = records.find(r => r.session_id === session.id);
+        const isPast = new Date(session.code_expires_at) < new Date();
+        return {
+           id: session.id,
+           date: session.session_date,
+           topic: (session as any).content_posts?.title || (Array.isArray(session.content_posts) ? session.content_posts[0]?.title : 'General Session') || 'General Session',
+           isPresent: record ? record.is_approved : false,
+           isPending: record ? !record.is_approved : false,
+           isAbsent: !record && isPast,
+           isOpen: session.is_open,
+           record
+        };
+      });
+
+      const present = attendanceBreakdown.filter(a => a.isPresent).length;
+      const totalSessions = allSessions.length;
 
       // Calculate total completion percentage based on content read
       let completionValue = 0;
@@ -146,6 +163,7 @@ export default function AdminDashboard() {
       setStudentStats({
         attendancePresent: present,
         attendanceTotal: totalSessions,
+        attendanceBreakdown,
         reportsSubmitted: (repRes.data || []).length,
         reports: repRes.data || [],
         completionPercentage: completionValue
@@ -157,6 +175,35 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }
+
+  const downloadStudentAttendanceCSV = () => {
+    if (!studentStats || !studentStats.attendanceBreakdown || !selectedStudent) return;
+    
+    const rows = studentStats.attendanceBreakdown.map((s: any) => {
+      const status = s.isPresent ? 'Present' : s.isPending ? 'Pending' : s.isAbsent ? 'Absent' : s.isOpen ? 'Open' : 'Not Marked';
+      return {
+        Date: s.date,
+        Topic: s.topic,
+        Status: status
+      };
+    });
+
+    if (rows.length === 0) {
+      return toast.warning("No attendance data to download");
+    }
+
+    const headers = Object.keys(rows[0]).join(',');
+    const csvRows = rows.map((row: any) => Object.values(row).map(val => `"${val}"`).join(','));
+    const csv = [headers, ...csvRows].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedStudent.full_name || selectedStudent.profiles?.full_name || 'Student'}_attendance_history_${selectedBatch.name}.csv`.replace(/[^a-z0-9_.-]/gi, '_');
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   // View: Batch List
   if (!selectedBatch) {
@@ -372,7 +419,7 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Recent Project Reports</CardTitle>
@@ -381,7 +428,7 @@ export default function AdminDashboard() {
                   {studentStats.reports.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-4">No reports submitted.</p>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                       {studentStats.reports.map((report: any) => (
                         <div key={report.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-start">
                           <div>
@@ -395,6 +442,55 @@ export default function AdminDashboard() {
                           >
                             {report.status}
                           </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle>Attendance History</CardTitle>
+                  <Button variant="ghost" size="sm" className="text-blue-600 h-8" onClick={downloadStudentAttendanceCSV}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {!studentStats.attendanceBreakdown || studentStats.attendanceBreakdown.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No attendance sessions found.</p>
+                  ) : (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      {studentStats.attendanceBreakdown.map((session: any) => (
+                        <div key={session.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
+                          <div>
+                            <h4 className="font-semibold text-slate-800 text-sm">{formatDate(session.date)}</h4>
+                            <span className="text-xs text-slate-500 truncate max-w-[200px] block">{session.topic}</span>
+                          </div>
+                          <div>
+                            {session.isPresent ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 block text-center min-w-[80px]">
+                                Present
+                              </span>
+                            ) : session.isPending ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 block text-center min-w-[80px]">
+                                Pending
+                              </span>
+                            ) : session.isAbsent ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 block text-center min-w-[80px]">
+                                Absent
+                              </span>
+                            ) : session.isOpen ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 block text-center min-w-[80px]">
+                                Open
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 block text-center min-w-[80px]">
+                                Not Marked
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

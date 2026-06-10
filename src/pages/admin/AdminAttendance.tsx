@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import { Card, CardContent } from '../../components/ui/card';
-import { Loader2, PlusCircle, UserCheck, XCircle, Clock } from 'lucide-react';
+import { Loader2, PlusCircle, UserCheck, XCircle, Clock, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/utils';
 import { Label } from '../../components/ui/label';
@@ -27,6 +27,28 @@ export default function AdminAttendance() {
 
   useEffect(() => {
     fetchData();
+
+    // Auto-close sessions after 5 minutes (when code_expires_at is reached)
+    const interval = setInterval(() => {
+      setSessions((prevSessions) => {
+        let hasChanges = false;
+        const now = new Date();
+        
+        const nextSessions = prevSessions.map(session => {
+          if (session.is_open && new Date(session.code_expires_at) <= now) {
+            hasChanges = true;
+            // Update in DB silently
+            supabase.from('attendance_sessions').update({ is_open: false }).eq('id', session.id).then();
+            return { ...session, is_open: false };
+          }
+          return session;
+        });
+
+        return hasChanges ? nextSessions : prevSessions;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchData = async () => {
@@ -98,13 +120,31 @@ export default function AdminAttendance() {
     try {
       setActiveSessionId(sessionId);
       setIsRecordsOpen(true);
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .select('*, profiles!attendance_records_student_id_fkey(full_name, email)')
-        .eq('session_id', sessionId);
       
-      if (error) throw error;
-      setRecords(data || []);
+      const { data: sessionData } = await supabase.from('attendance_sessions').select('batch_id').eq('id', sessionId).single();
+      if (!sessionData) return;
+
+      const [studentsRes, recordsRes] = await Promise.all([
+        supabase.from('batch_students').select('student_id, profiles(full_name, email)').eq('batch_id', sessionData.batch_id),
+        supabase.from('attendance_records').select('*').eq('session_id', sessionId)
+      ]);
+
+      if (studentsRes.error) throw studentsRes.error;
+      if (recordsRes.error) throw recordsRes.error;
+
+      const mergedRecords = (studentsRes.data || []).map((bs: any) => {
+        const record = recordsRes.data?.find(r => r.student_id === bs.student_id);
+        return {
+          id: record ? record.id : `absent-${bs.student_id}`,
+          student_id: bs.student_id,
+          profiles: bs.profiles,
+          marked_at: record ? record.marked_at : null,
+          is_approved: record ? record.is_approved : false,
+          is_present: !!record
+        };
+      });
+
+      setRecords(mergedRecords || []);
     } catch(err: any) {
       toast.error(err.message);
     }
@@ -135,6 +175,51 @@ export default function AdminAttendance() {
       viewRecords(activeSessionId!);
     } catch (err: any) {
       toast.error(err.message);
+    }
+  };
+
+  const downloadSessionCSV = async (sessionId: string, sessionDate: string) => {
+    try {
+      const { data: sessionData } = await supabase.from('attendance_sessions').select('batch_id, content_posts(title)').eq('id', sessionId).single();
+      if (!sessionData) return;
+
+      const [studentsRes, recordsRes] = await Promise.all([
+        supabase.from('batch_students').select('student_id, profiles(full_name, email)').eq('batch_id', sessionData.batch_id),
+        supabase.from('attendance_records').select('*').eq('session_id', sessionId)
+      ]);
+
+      if (studentsRes.error) throw studentsRes.error;
+      if (recordsRes.error) throw recordsRes.error;
+
+      const mergedRecords = (studentsRes.data || []).map((bs: any) => {
+        const record = recordsRes.data?.find(r => r.student_id === bs.student_id);
+        return {
+          Name: bs.profiles?.full_name || 'N/A',
+          Email: bs.profiles?.email || 'N/A',
+          Status: record ? (record.is_approved ? 'Present' : 'Pending') : 'Absent',
+          MarkedAt: record && record.marked_at ? new Date(record.marked_at).toLocaleString() : 'N/A'
+        };
+      });
+
+      if (mergedRecords.length === 0) {
+        return toast.warning("No students in this batch");
+      }
+
+      const headers = Object.keys(mergedRecords[0]).join(',');
+      const csvRows = mergedRecords.map(row => 
+        Object.values(row).map(val => `"${val}"`).join(',')
+      );
+      const csv = [headers, ...csvRows].join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Attendance_${sessionDate}_${(sessionData as any).content_posts?.title || 'Session'}.csv`.replace(/[^a-z0-9_.-]/gi, '_');
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch(err: any) {
+      toast.error("Failed to export: " + err.message);
     }
   };
 
@@ -199,6 +284,9 @@ export default function AdminAttendance() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
+                       <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 mr-1" onClick={() => downloadSessionCSV(session.id, session.session_date)} title="Download Report">
+                         <Download className="h-4 w-4" />
+                       </Button>
                        {session.is_open ? (
                          <Button variant="outline" size="sm" onClick={() => closeSession(session.id)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
                            Close Session
@@ -264,22 +352,30 @@ export default function AdminAttendance() {
                   <div>
                     <h4 className="font-medium text-slate-900">{record.profiles?.full_name}</h4>
                     <p className="text-sm text-slate-500">{record.profiles?.email}</p>
-                    <p className="text-xs text-slate-400 mt-1">Submitted at {new Date(record.marked_at).toLocaleTimeString()}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {record.is_present && record.marked_at ? `Submitted at ${new Date(record.marked_at).toLocaleTimeString()}` : 'Not submitted'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {record.is_approved ? (
-                      <span className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md border border-green-200">
-                        <UserCheck className="h-4 w-4" /> Approved
-                      </span>
+                    {record.is_present ? (
+                      record.is_approved ? (
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md border border-green-200">
+                          <UserCheck className="h-4 w-4" /> Present
+                        </span>
+                      ) : (
+                        <>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleReject(record.id)}>
+                             <XCircle className="h-4 w-4 mr-1.5" /> Reject
+                          </Button>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApprove(record.id)}>
+                             <UserCheck className="h-4 w-4 mr-1.5" /> Approve
+                          </Button>
+                        </>
+                      )
                     ) : (
-                      <>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleReject(record.id)}>
-                           <XCircle className="h-4 w-4 mr-1.5" /> Reject
-                        </Button>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApprove(record.id)}>
-                           <UserCheck className="h-4 w-4 mr-1.5" /> Approve
-                        </Button>
-                      </>
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 text-sm font-medium rounded-md border border-red-200">
+                        <XCircle className="h-4 w-4" /> Absent
+                      </span>
                     )}
                   </div>
                 </div>
