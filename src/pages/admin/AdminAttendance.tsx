@@ -178,6 +178,24 @@ export default function AdminAttendance() {
     }
   };
 
+  const handleManualMarkPresent = async (studentId: string) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase.from('attendance_records').insert({
+        session_id: activeSessionId!,
+        student_id: studentId,
+        is_approved: true,
+        approved_by: user.user?.id,
+        approved_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      toast.success("Student marked present manually");
+      viewRecords(activeSessionId!);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const downloadSessionCSV = async (sessionId: string, sessionDate: string) => {
     try {
       const { data: sessionData } = await supabase.from('attendance_sessions').select('batch_id, content_posts(title)').eq('id', sessionId).single();
@@ -359,9 +377,14 @@ export default function AdminAttendance() {
                   <div className="flex items-center gap-2">
                     {record.is_present ? (
                       record.is_approved ? (
-                        <span className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md border border-green-200">
-                          <UserCheck className="h-4 w-4" /> Present
-                        </span>
+                        <>
+                          <span className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md border border-green-200">
+                            <UserCheck className="h-4 w-4" /> Present
+                          </span>
+                          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2" onClick={() => handleReject(record.id)} title="Mark Absent / Remove">
+                            Undo
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleReject(record.id)}>
@@ -373,9 +396,14 @@ export default function AdminAttendance() {
                         </>
                       )
                     ) : (
-                      <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 text-sm font-medium rounded-md border border-red-200">
-                        <XCircle className="h-4 w-4" /> Absent
-                      </span>
+                      <>
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 text-sm font-medium rounded-md border border-red-200">
+                          <XCircle className="h-4 w-4" /> Absent
+                        </span>
+                        <Button variant="outline" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200" onClick={() => handleManualMarkPresent(record.student_id)}>
+                           Override
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

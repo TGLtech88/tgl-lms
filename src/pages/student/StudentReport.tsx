@@ -9,12 +9,11 @@ import {
   AlertCircle,
   Award,
   Link as LinkIcon,
-  ExternalLink
+  ExternalLink,
+  Download
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { toast } from "sonner";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 
 export default function StudentReport() {
@@ -26,9 +25,8 @@ export default function StudentReport() {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   
   const [generatingCert, setGeneratingCert] = useState(false);
-  const [certSettings, setCertSettings] = useState<any>(null);
   const [studentBatch, setStudentBatch] = useState<any>(null);
-  const certRef = useRef<HTMLDivElement>(null);
+  const [certificateUrl, setCertificateUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReport() {
@@ -59,14 +57,15 @@ export default function StudentReport() {
             setStudentBatch(batchData.batches);
         }
 
-        const { data: certData } = await supabase
-            .from('certificate_settings')
-            .select('*')
-            .limit(1)
-            .maybeSingle();
-            
-        if (certData) {
-            setCertSettings(certData);
+        const { data: certFiles } = await supabase.storage.from('journals').list('certificates', {
+            search: profile.id
+        });
+        
+        if (certFiles && certFiles.some(f => f.name === `${profile.id}.pdf`)) {
+            const { data: urlData } = supabase.storage.from('journals').getPublicUrl(`certificates/${profile.id}.pdf`);
+            if (urlData) {
+                setCertificateUrl(urlData.publicUrl);
+            }
         }
 
         if (data) {
@@ -199,35 +198,14 @@ export default function StudentReport() {
     }
   };
 
-  const downloadCertPdf = async () => {
-    if (!certRef.current) return;
-    
-    setGeneratingCert(true);
-    try {
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      const fileName = `Certificate_${profile?.full_name?.replace(/\s+/g, '_') || 'Student'}.pdf`;
-      pdf.save(fileName);
-      toast.success('Certificate downloaded successfully');
-    } catch (error) {
-      toast.error('Failed to generate certificate PDF');
-      console.error(error);
-    } finally {
-      setGeneratingCert(false);
+  const downloadCertPdf = () => {
+    if (!certificateUrl) {
+       toast.error("Certificate not uploaded yet.");
+       return;
     }
+    
+    // We can just open it in a new tab or trigger download
+    window.open(certificateUrl, '_blank');
   };
 
   if (loading)
@@ -327,22 +305,33 @@ export default function StudentReport() {
       )}
 
       {/* Certificate Panel if Approved/Completed */}
-      {(report.status === 'Approved' || report.status === 'Completed') && (
+      {(report.status === 'Approved' || report.status === 'Completed') && certificateUrl && (
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-xl overflow-hidden mb-6 shrink-0">
           <div className="p-8 sm:p-12 text-center text-white flex flex-col items-center">
             <Award className="w-16 h-16 mb-4 text-indigo-100" />
             <h2 className="text-3xl font-bold mb-2">Congratulations!</h2>
             <p className="text-indigo-100 max-w-lg mb-8">
-              Your project report has been approved. You have officially completed the program requirements. Your certificate is now available.
+              Your project report has been approved and your certificate is ready. You have officially completed the program requirements.
             </p>
             <Button
               onClick={downloadCertPdf}
-              disabled={generatingCert}
               className="bg-white text-indigo-600 hover:bg-slate-50 font-bold py-6 px-8 rounded-xl text-lg gap-3"
             >
-              {generatingCert ? <Loader2 className="w-6 h-6 animate-spin" /> : <Award className="w-6 h-6" />}
-              {generatingCert ? 'Generating PDF...' : 'Download Certificate'}
+              <Download className="w-6 h-6" />
+              Download Certificate
             </Button>
+          </div>
+        </div>
+      )}
+      
+      {(report.status === 'Approved' || report.status === 'Completed') && !certificateUrl && (
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-xl overflow-hidden mb-6 shrink-0">
+          <div className="p-8 sm:p-12 text-center text-white flex flex-col items-center">
+            <Award className="w-16 h-16 mb-4 text-blue-100" />
+            <h2 className="text-3xl font-bold mb-2">Project Approved!</h2>
+            <p className="text-blue-100 max-w-lg mb-8">
+              Your project report has been approved. Your certificate will be uploaded here by the admin soon.
+            </p>
           </div>
         </div>
       )}
@@ -439,81 +428,6 @@ export default function StudentReport() {
 
         </div>
       </div>
-
-      {/* Hidden Certificate Element for Generation */}
-      {(report.status === 'Approved' || report.status === 'Completed') && (
-        <div style={{ position: 'absolute', top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }}>
-           <div 
-              ref={certRef}
-              className="relative font-sans overflow-hidden"
-              style={{ 
-                width: '800px', 
-                height: '565px',
-                backgroundImage: certSettings?.template_url ? `url(${certSettings.template_url})` : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                color: '#0f172a',
-                backgroundColor: '#ffffff'
-              }}
-           >
-              {!certSettings?.template_url && (
-                <div className="absolute inset-0 border-[10px] border-double m-4 flex flex-col items-center justify-center p-12 text-center" style={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0' }}>
-                   <div className="w-full h-full border rounded-sm p-8 flex flex-col items-center" style={{ borderColor: '#f1f5f9' }}>
-                      <Award className="w-16 h-16 mb-6" style={{ color: '#6366f1' }} />
-                      <h1 className="text-4xl font-serif mb-2 uppercase tracking-widest" style={{ color: '#1e293b' }}>Certificate of Completion</h1>
-                      <p className="italic mb-8" style={{ color: '#64748b' }}>This is to certify that</p>
-                      
-                      <h2 className="text-5xl font-serif mb-8 border-b pb-2 inline-block px-12" style={{ color: '#312e81', borderBottomColor: '#cbd5e1' }}>
-                        {profile?.full_name}
-                      </h2>
-                      
-                      <p className="text-lg max-w-2xl leading-relaxed mb-auto" style={{ color: '#475569' }}>
-                        has successfully completed the <strong>{studentBatch?.name || 'Internship Program'}</strong>, 
-                        demonstrating exceptional skills and continuous dedication to the field 
-                        between {studentBatch?.start_date ? format(new Date(studentBatch.start_date), 'MMM yyyy') : '...'} and {studentBatch?.end_date ? format(new Date(studentBatch.end_date), 'MMM yyyy') : '...'}.
-                      </p>
-
-                      <div className="flex justify-between w-full px-12 mt-12">
-                        <div className="text-center">
-                          <p className="font-bold border-b pb-1 mb-1 w-48" style={{ color: '#1e293b', borderBottomColor: '#94a3b8' }}>
-                            {format(new Date(), 'MMMM d, yyyy')}
-                          </p>
-                          <p className="text-sm" style={{ color: '#64748b' }}>Date of Issue</p>
-                        </div>
-                        
-                        <div className="text-center">
-                          <p className="font-serif text-xl border-b pb-1 mb-1 w-48 truncate" style={{ color: '#1e293b', borderBottomColor: '#94a3b8' }}>
-                            {certSettings?.issuer_name || 'Authorized Signatory'}
-                          </p>
-                          <p className="text-sm" style={{ color: '#64748b' }}>{certSettings?.issuer_title || 'Director'}</p>
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              )}
-              
-              {certSettings?.template_url && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center pt-24 text-center z-10">
-                    <p className="text-xl mt-24 italic mb-4" style={{ color: '#475569' }}>This is to certify that</p>
-                    <h2 className="text-5xl font-serif mb-4" style={{ color: '#0f172a' }}>{profile?.full_name}</h2>
-                    <p className="text-lg max-w-[600px] leading-relaxed" style={{ color: '#334155' }}>
-                      has successfully completed the <strong>{studentBatch?.name || 'Internship Program'}</strong>.
-                    </p>
-                    <div className="absolute bottom-16 left-24 text-center">
-                      <p className="font-bold text-lg" style={{ color: '#0f172a' }}>{format(new Date(), 'MMM d, yyyy')}</p>
-                      <p className="text-xs uppercase tracking-wider mt-1" style={{ color: '#64748b' }}>Date</p>
-                    </div>
-                    <div className="absolute bottom-16 right-24 text-center w-48">
-                      <p className="font-serif text-2xl truncate" style={{ color: '#0f172a' }}>{certSettings?.issuer_name}</p>
-                      <p className="text-xs uppercase tracking-wider mt-1 border-t pt-1" style={{ color: '#64748b', borderTopColor: '#94a3b8' }}>
-                        {certSettings?.issuer_title || 'Signatory'}
-                      </p>
-                    </div>
-                 </div>
-              )}
-           </div>
-        </div>
-      )}
 
     </div>
   );
