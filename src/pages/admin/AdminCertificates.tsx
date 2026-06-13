@@ -97,7 +97,8 @@ ${urlData.publicUrl}
 Best regards,
 Admin Team`);
 
-     window.location.href = `mailto:${student.profiles?.email}?subject=${subject}&body=${body}`;
+     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${student.profiles?.email}&su=${subject}&body=${body}`;
+     window.open(gmailUrl, '_blank');
   };
 
   return (
