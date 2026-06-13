@@ -25,6 +25,9 @@ export default function AdminAttendance() {
   const [records, setRecords] = useState<any[]>([]);
   const [isRecordsOpen, setIsRecordsOpen] = useState(false);
 
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportBatchId, setExportBatchId] = useState('');
+
   useEffect(() => {
     fetchData();
 
@@ -196,6 +199,76 @@ export default function AdminAttendance() {
     }
   };
 
+  const downloadBatchSummary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exportBatchId) return toast.error("Please select a batch");
+
+    try {
+      const selectedBatch = batches.find(b => b.id === exportBatchId);
+      if (!selectedBatch) return;
+
+      const { data: students } = await supabase.from('batch_students').select('student_id, profiles(full_name, email)').eq('batch_id', exportBatchId);
+      const { data: sessions } = await supabase.from('attendance_sessions').select('id, session_date, content_posts(title)').eq('batch_id', exportBatchId).order('session_date', { ascending: true });
+      
+      if (!students || students.length === 0) {
+        toast.warning("No students found in this batch.");
+        return;
+      }
+      
+      const sessionIds = sessions ? sessions.map(s => s.id) : [];
+      let records: any[] = [];
+      if (sessionIds.length > 0) {
+        const { data: recs } = await supabase.from('attendance_records').select('*').in('session_id', sessionIds).eq('is_approved', true);
+        records = recs || [];
+      }
+
+      const rows = students.map(student => {
+        const bs = student as any;
+        const studentInfo: any = {
+           Name: bs.profiles?.full_name || 'N/A',
+           Email: bs.profiles?.email || 'N/A'
+        };
+
+        let attended = 0;
+        
+        sessions?.forEach(session => {
+           const hasAttended = records.some(r => r.session_id === session.id && r.student_id === bs.student_id);
+           if (hasAttended) attended++;
+           studentInfo[session.session_date] = hasAttended ? 'Present' : 'Absent';
+        });
+
+        const totalSessions = sessions?.length || 0;
+        studentInfo['Total Sessions'] = totalSessions;
+        studentInfo['Sessions Attended'] = attended;
+        studentInfo['Attendance Percentage'] = totalSessions > 0 ? Math.round((attended / totalSessions) * 100) + '%' : '0%';
+        
+        return studentInfo;
+      });
+
+      if (rows.length === 0) return;
+      
+      const headers = Object.keys(rows[0]).join(',');
+      const csvRows = rows.map(row => 
+        Object.values(row).map(val => `"${val}"`).join(',')
+      );
+      const csv = [headers, ...csvRows].join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `${selectedBatch.name}_Attendance_Summary_${dateStr}.csv`.replace(/[^a-z0-9_.-]/gi, '_');
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      setIsExportOpen(false);
+      setExportBatchId('');
+    } catch(err: any) {
+      toast.error("Failed to export summary: " + err.message);
+    }
+  };
+
   const downloadSessionCSV = async (sessionId: string, sessionDate: string) => {
     try {
       const { data: sessionData } = await supabase.from('attendance_sessions').select('batch_id, content_posts(title)').eq('id', sessionId).single();
@@ -248,10 +321,16 @@ export default function AdminAttendance() {
           <h1 className="text-2xl font-bold text-slate-900">Attendance Management</h1>
           <p className="text-sm text-slate-500 mt-1">Manage and approve attendance sessions</p>
         </div>
-        <Button onClick={() => setIsNewOpen(true)} className="gap-2">
-          <PlusCircle className="h-4 w-4" />
-          Open New Session
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => setIsExportOpen(true)} className="gap-2">
+            <Download className="h-4 w-4" />
+            Export Batch Summary
+          </Button>
+          <Button onClick={() => setIsNewOpen(true)} className="gap-2">
+            <PlusCircle className="h-4 w-4" />
+            Open New Session
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
@@ -411,6 +490,28 @@ export default function AdminAttendance() {
             </div>
           )}
         </div>
+      </Dialog>
+      <Dialog isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} title="Export Batch Summary">
+        <form onSubmit={downloadBatchSummary} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="export_batch">Select Batch</Label>
+            <select 
+              id="export_batch"
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              value={exportBatchId}
+              onChange={e => setExportBatchId(e.target.value)}
+              required
+            >
+              <option value="">Select a batch...</option>
+              {batches.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+            <p className="text-xs text-slate-500 mt-2">This will download a CSV containing the attendance summary for all students in this batch across all sessions.</p>
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button type="button" variant="ghost" onClick={() => setIsExportOpen(false)} className="mr-2">Cancel</Button>
+            <Button type="submit" className="gap-2"><Download className="w-4 h-4"/> Download CSV</Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );
