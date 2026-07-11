@@ -29,37 +29,6 @@ import StudentProfile from './pages/student/StudentProfile';
 import StudentReport from './pages/student/StudentReport';
 import StudentJournals from './pages/student/StudentJournals';
 
-function AutoLogout() {
-  const { user, signOut } = useAuthStore();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const logout = async () => {
-      await signOut();
-    };
-
-    const resetTimer = () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      // Automatically logout after 15 minutes of inactivity
-      timeoutRef.current = setTimeout(logout, 15 * 60 * 1000);
-    };
-
-    resetTimer();
-
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach(event => window.addEventListener(event, resetTimer));
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      events.forEach(event => window.removeEventListener(event, resetTimer));
-    };
-  }, [user, signOut]);
-
-  return null;
-}
-
 // Placeholder Pages
 const Placeholder = ({ title }: { title: string }) => (
   <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center shadow-sm">
@@ -98,7 +67,6 @@ export default function App() {
 
   return (
     <Router>
-      <AutoLogout />
       <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/" element={<Login />} />

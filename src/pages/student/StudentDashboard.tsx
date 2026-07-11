@@ -37,6 +37,7 @@ export default function StudentDashboard() {
     announcements: [],
     attendanceStats: { present: 0, total: 0 },
     batchName: "Unknown Batch",
+    isBatchEnded: false,
   });
 
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
@@ -55,18 +56,41 @@ export default function StudentDashboard() {
 
         if (batchQuery) {
           const batchId = batchQuery.batch_id;
-
-          // Get available contents
+          const batchInfo = batchQuery.batches as any;
           const today = new Date().toISOString().split("T")[0];
 
-          const { data: upcomingPosts } = await supabase
-            .from("content_posts")
-            .select("id, title, release_date")
-            .eq("batch_id", batchId)
-            .eq("is_published", true)
-            .gt("release_date", today)
-            .order("release_date", { ascending: true })
-            .limit(3);
+          let isBatchEnded = false;
+          if (batchInfo?.end_date && batchInfo.end_date < today) {
+            isBatchEnded = true;
+          }
+
+          let upcomingPosts: any[] = [];
+          let allAvailablePosts: any[] = [];
+          
+          if (!isBatchEnded) {
+            // Get available contents
+            const { data: upcomingPostsRes } = await supabase
+              .from("content_posts")
+              .select("id, title, release_date")
+              .eq("batch_id", batchId)
+              .eq("is_published", true)
+              .gt("release_date", today)
+              .order("release_date", { ascending: true })
+              .limit(3);
+              
+            upcomingPosts = upcomingPostsRes || [];
+
+            // Get All available posts to show progress
+            const { data: allAvailablePostsRes } = await supabase
+              .from("content_posts")
+              .select("id, title, release_date, description")
+              .eq("batch_id", batchId)
+              .eq("is_published", true)
+              .lte("release_date", today)
+              .order("release_date", { ascending: true });
+              
+            allAvailablePosts = allAvailablePostsRes || [];
+          }
 
           // Get announcements
           const { data: announcements } = await supabase
@@ -75,15 +99,6 @@ export default function StudentDashboard() {
              .or(`batch_id.eq.${batchId},batch_id.is.null`)
              .order("created_at", { ascending: false })
              .limit(5);
-
-          // Get All available posts to show progress
-          const { data: allAvailablePosts } = await supabase
-            .from("content_posts")
-            .select("id, title, release_date, description")
-            .eq("batch_id", batchId)
-            .eq("is_published", true)
-            .lte("release_date", today)
-            .order("release_date", { ascending: true });
 
           // Find if there's an open attendance session for today
           const { data: activeSessionQuery } = await supabase
@@ -128,6 +143,7 @@ export default function StudentDashboard() {
 
           setData({
             batchName: (batchQuery.batches as any)?.name || "Unknown Batch",
+            isBatchEnded,
             activeSession: activeSessionQuery,
             upcomingPosts: upcomingPosts || [],
             announcements: announcements || [],
@@ -221,6 +237,15 @@ export default function StudentDashboard() {
           </p>
         </div>
       </div>
+
+      {data.isBatchEnded && (
+        <div className="bg-orange-50 border border-orange-200 text-orange-800 px-6 py-4 rounded-2xl flex items-center gap-3">
+          <BookOpen className="w-5 h-5 text-orange-600" />
+          <p className="font-medium text-sm">
+            Your batch has ended. Course materials are no longer accessible, but you can still view your certificates and reports.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Main Action */}

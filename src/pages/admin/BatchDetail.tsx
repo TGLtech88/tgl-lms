@@ -66,6 +66,58 @@ export default function BatchDetail() {
     try {
       setIsSubmitting(true);
       
+      // 1. Check if user already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', newStudent.email)
+        .maybeSingle();
+
+      let userId = '';
+
+      if (existingProfile) {
+        userId = existingProfile.id;
+
+        // Check their current batches to see if they are active
+        const { data: enrollments } = await supabase
+          .from('batch_students')
+          .select('batch_id, batches(end_date)')
+          .eq('student_id', userId);
+        
+        if (enrollments && enrollments.length > 0) {
+          const today = new Date().toISOString().split("T")[0];
+          const hasActiveBatch = enrollments.some(enrollment => {
+            const batchInfo = enrollment.batches as any;
+            return !batchInfo?.end_date || batchInfo.end_date >= today;
+          });
+
+          if (hasActiveBatch) {
+            throw new Error("Student already exists and is currently enrolled in an active batch.");
+          }
+        }
+        
+        // If we get here, they exist but all their batches have ended.
+        // We can just enroll them in the new batch.
+        const { error: enrollError } = await supabase.from('batch_students').insert([{
+          batch_id: id,
+          student_id: userId
+        }]);
+
+        if (enrollError) {
+          if (enrollError.code === '23505') {
+            throw new Error("Student is already enrolled in this specific batch.");
+          }
+          throw enrollError;
+        }
+
+        toast.success('Existing student added to the new batch successfully!');
+        setNewStudent({ name: '', email: '', college: '', branch: '', semester: '', phone: '' });
+        setIsAddStudentOpen(false); // Close the modal since we don't have new credentials
+        fetchBatchDetails();
+        return;
+      }
+
+      // If they don't exist, proceed with creating a new user
       const generatedPassword = `TGL@${Math.random().toString(36).slice(-6)}${new Date().getFullYear()}`;
 
       // Create a temporary client that doesn't persist the session
@@ -91,7 +143,7 @@ export default function BatchDetail() {
 
       if (authError) throw authError;
 
-      const userId = authData.user?.id;
+      userId = authData.user?.id || '';
       if (!userId) throw new Error('User creation failed (no ID returned)');
 
       // Update the profile to include the new custom fields (since trigger might have already created it)

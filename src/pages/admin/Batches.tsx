@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog } from '../../components/ui/dialog';
-import { Plus, Loader2, Eye, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Eye, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,9 @@ export default function Batches() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
+  
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   
   const [newBatch, setNewBatch] = useState({
     name: '',
@@ -73,6 +76,47 @@ export default function Batches() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEditBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBatch) return;
+    
+    try {
+      setIsSubmitting(true);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Not authenticated');
+
+      const { error } = await supabase.from('batches').update({
+        name: newBatch.name,
+        description: newBatch.description,
+        start_date: newBatch.start_date || null,
+        end_date: newBatch.end_date || null,
+      }).eq('id', editingBatch.id);
+
+      if (error) throw error;
+
+      toast.success('Batch updated successfully');
+      setIsEditOpen(false);
+      setEditingBatch(null);
+      setNewBatch({ name: '', description: '', start_date: '', end_date: '' });
+      fetchBatches();
+    } catch (error: any) {
+      toast.error('Failed to update batch: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditModal = (batch: Batch) => {
+    setEditingBatch(batch);
+    setNewBatch({
+      name: batch.name || '',
+      description: batch.description || '',
+      start_date: batch.start_date || '',
+      end_date: batch.end_date || ''
+    });
+    setIsEditOpen(true);
   };
 
   const executeDelete = async () => {
@@ -153,6 +197,9 @@ export default function Batches() {
                     <td className="px-6 py-4 text-slate-600">{batch.start_date ? formatDate(batch.start_date) : '-'}</td>
                     <td className="px-6 py-4 text-slate-600">{batch.end_date ? formatDate(batch.end_date) : '-'}</td>
                     <td className="px-6 py-4 text-right space-x-2">
+                      <Button variant="ghost" size="icon" onClick={() => openEditModal(batch)} title="Edit Detail">
+                        <Edit className="h-4 w-4 text-slate-500" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/batches/${batch.id}`)} title="View Detail">
                         <Eye className="h-4 w-4 text-blue-600" />
                       </Button>
@@ -168,7 +215,7 @@ export default function Batches() {
         </div>
       </div>
 
-      <Dialog isOpen={isCreateOpen} onClose={() => !isSubmitting && setIsCreateOpen(false)} title="Create New Batch" description="Enter the details for the new training batch.">
+      <Dialog isOpen={isCreateOpen} onClose={() => { if (!isSubmitting) { setIsCreateOpen(false); setNewBatch({ name: '', description: '', start_date: '', end_date: '' }); } }} title="Create New Batch" description="Enter the details for the new training batch.">
         <form onSubmit={handleCreateBatch} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="name">Batch Name</Label>
@@ -189,8 +236,35 @@ export default function Batches() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); setNewBatch({ name: '', description: '', start_date: '', end_date: '' }); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" isLoading={isSubmitting}>Create Batch</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog isOpen={isEditOpen} onClose={() => { if (!isSubmitting) { setIsEditOpen(false); setEditingBatch(null); setNewBatch({ name: '', description: '', start_date: '', end_date: '' }); } }} title="Edit Batch" description="Update the details for the training batch.">
+        <form onSubmit={handleEditBatch} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit_name">Batch Name</Label>
+            <Input id="edit_name" required value={newBatch.name} onChange={e => setNewBatch({...newBatch, name: e.target.value})} placeholder="e.g. Full Stack Web Dev - 2024" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit_description">Description</Label>
+            <Input id="edit_description" value={newBatch.description} onChange={e => setNewBatch({...newBatch, description: e.target.value})} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit_start_date">Start Date</Label>
+              <Input id="edit_start_date" type="date" value={newBatch.start_date} onChange={e => setNewBatch({...newBatch, start_date: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_end_date">End Date</Label>
+              <Input id="edit_end_date" type="date" value={newBatch.end_date} onChange={e => setNewBatch({...newBatch, end_date: e.target.value})} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditingBatch(null); setNewBatch({ name: '', description: '', start_date: '', end_date: '' }); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" isLoading={isSubmitting}>Update Batch</Button>
           </div>
         </form>
       </Dialog>

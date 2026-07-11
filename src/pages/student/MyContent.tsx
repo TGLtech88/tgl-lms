@@ -36,6 +36,7 @@ export default function MyContent() {
     toggleModuleCompletion,
   } = useContentStore();
   const [loading, setLoading] = useState(posts.length === 0);
+  const [isBatchEnded, setIsBatchEnded] = useState(false);
 
   useEffect(() => {
     async function loadContent() {
@@ -45,13 +46,23 @@ export default function MyContent() {
         // Find student batch
         const { data: batchQuery } = await supabase
           .from("batch_students")
-          .select("batch_id")
+          .select("batch_id, batches(name, end_date)")
           .eq("student_id", profile.id)
           .single();
 
         if (batchQuery) {
           const batchId = batchQuery.batch_id;
+          const batchInfo = batchQuery.batches as any;
           const today = new Date().toISOString().split("T")[0];
+
+          if (batchInfo?.end_date && batchInfo.end_date < today) {
+            setIsBatchEnded(true);
+            setPosts([]);
+            setLoading(false);
+            return;
+          }
+
+          setIsBatchEnded(false);
 
           // Get released content
           const { data: contentData } = await supabase
@@ -247,7 +258,7 @@ export default function MyContent() {
         );
       } else {
         // Use Google Docs viewer or Office Web Viewer for other documents
-        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+        const officeViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
         embedContent = (
           <iframe
             src={officeViewerUrl}
@@ -304,6 +315,20 @@ export default function MyContent() {
     }
   };
 
+  if (isBatchEnded) {
+    return (
+      <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] flex max-w-7xl mx-auto gap-4 items-center justify-center w-full">
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-sm max-w-lg w-full mx-4">
+          <BookOpen className="h-16 w-16 mx-auto text-orange-400 mb-6" />
+          <h2 className="text-2xl font-bold text-slate-800 mb-3">Batch Ended</h2>
+          <p className="text-slate-500 font-medium">
+            Your batch has officially ended. Course materials and content are no longer accessible. You can still view your certificates and reports from the dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // If mobile view and post selected, show viewer only. Handled roughly by responsive classes.
   return (
     <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] lg:h-[calc(100vh-9rem)] min-h-[500px] flex max-w-7xl mx-auto gap-4 lg:gap-6 lg:-mt-2">
@@ -335,7 +360,7 @@ export default function MyContent() {
               <div className="py-8 text-center">
                 <BookOpen className="h-10 w-10 mx-auto text-slate-300 mb-3" />
                 <p className="text-sm font-medium text-slate-500">
-                  No materials available yet.
+                  {isBatchEnded ? "Your batch has ended. Course materials are no longer accessible." : "No materials available yet."}
                 </p>
               </div>
             ) : (

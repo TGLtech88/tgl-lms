@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Profile } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
-import { Trash2, Loader2, Mail, Edit, Phone, Building2, BookOpen, GraduationCap, KeyRound, Copy } from 'lucide-react';
+import { Trash2, Loader2, Mail, Edit, Phone, Building2, BookOpen, GraduationCap, KeyRound, Copy, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/utils';
 import { Input } from '../../components/ui/input';
@@ -11,6 +11,10 @@ import { Label } from '../../components/ui/label';
 
 export default function AdminStudents() {
   const [students, setStudents] = useState<Profile[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [batchStudents, setBatchStudents] = useState<any[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
+  
   const [loading, setLoading] = useState(true);
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null);
   
@@ -27,23 +31,27 @@ export default function AdminStudents() {
   const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
-    fetchStudents();
+    fetchData();
   }, []);
 
-  const fetchStudents = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'student')
-        .order('created_at', { ascending: false });
+      
+      const [studentsRes, batchesRes, batchStudentsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('role', 'student').order('created_at', { ascending: false }),
+        supabase.from('batches').select('id, name').order('created_at', { ascending: false }),
+        supabase.from('batch_students').select('batch_id, student_id')
+      ]);
 
-      // @ts-ignore - ignore the case where columns don't exist yet but no error thrown
-      if (error && error.code !== 'PGRST204') throw error;
-      setStudents(data || []);
+      if (studentsRes.error && studentsRes.error.code !== 'PGRST204') throw studentsRes.error;
+      
+      setStudents(studentsRes.data || []);
+      setBatches(batchesRes.data || []);
+      setBatchStudents(batchStudentsRes.data || []);
+      
     } catch (error: any) {
-      toast.error('Failed to load students: ' + error.message);
+      toast.error('Failed to load data: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -83,7 +91,7 @@ export default function AdminStudents() {
       
       toast.success(`Details for ${editingStudent.full_name} updated.`);
       setEditingStudent(null);
-      fetchStudents();
+      fetchData();
     } catch (error: any) {
       toast.error('Failed to update student: ' + error.message);
     } finally {
@@ -100,7 +108,7 @@ export default function AdminStudents() {
       if (error) throw error;
       
       toast.success(`Student ${studentToDelete.name} deleted successfully.`);
-      fetchStudents();
+      fetchData();
       setStudentToDelete(null);
     } catch (error: any) {
       toast.error('Failed to delete student: ' + error.message);
@@ -130,11 +138,32 @@ export default function AdminStudents() {
     }
   };
 
+  const filteredStudents = useMemo(() => {
+    if (selectedBatchId === 'all') return students;
+    const studentIdsInBatch = new Set(batchStudents.filter(bs => bs.batch_id === selectedBatchId).map(bs => bs.student_id));
+    return students.filter(student => studentIdsInBatch.has(student.id));
+  }, [students, batchStudents, selectedBatchId]);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">All Students</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage global student profiles</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">All Students</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage global student profiles</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <select
+            className="h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            value={selectedBatchId}
+            onChange={(e) => setSelectedBatchId(e.target.value)}
+          >
+            <option value="all">All Batches</option>
+            {batches.map((batch) => (
+              <option key={batch.id} value={batch.id}>{batch.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -142,9 +171,9 @@ export default function AdminStudents() {
           <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           </div>
-        ) : students.length === 0 ? (
+        ) : filteredStudents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-            <p>No students found in the system.</p>
+            <p>No students found for the selected filter.</p>
           </div>
         ) : (
           <table className="w-full text-sm text-left whitespace-nowrap min-w-[800px]">
@@ -158,7 +187,7 @@ export default function AdminStudents() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4">
                     <div className="font-bold text-slate-900">{student.full_name}</div>

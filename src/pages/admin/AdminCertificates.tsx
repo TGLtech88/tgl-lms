@@ -9,10 +9,18 @@ export default function AdminCertificates() {
   const [students, setStudents] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [batchFilter, setBatchFilter] = useState("All");
+  const [batches, setBatches] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
+    loadBatches();
   }, []);
+
+  const loadBatches = async () => {
+    const { data } = await supabase.from("batches").select("id, name").order("name");
+    if (data) setBatches(data);
+  };
 
   const loadData = async () => {
     try {
@@ -25,6 +33,7 @@ export default function AdminCertificates() {
           id,
           status,
           student_id,
+          batch_id,
           profiles:student_id (id, full_name, email),
           batches:batch_id (name, start_date, end_date)
         `)
@@ -86,12 +95,13 @@ export default function AdminCertificates() {
         .from('journals')
         .getPublicUrl(`certificates/${studentId}.pdf`);
      
-     const subject = encodeURIComponent(`Your Certificate of Completion - IoT & Embedded Systems ${student.batches?.name}`);
+     const subject = encodeURIComponent(`Your Certificate of Completion - ${student.batches?.name}`);
      const body = encodeURIComponent(`Dear ${student.profiles?.full_name},
 
-Congratulations on successfully completing the IoT & Embedded Systems ${student.batches?.name} program!
+Congratulations on successfully completing the ${student.batches?.name} program!
 
-You can find your certificate of completion attached below.
+You can download your certificate of completion using the link below:
+${urlData.publicUrl}
 
 Best regards,
 Admin Team`);
@@ -100,12 +110,26 @@ Admin Team`);
      window.open(gmailUrl, '_blank');
   };
 
+  const filteredStudents = students.filter(s => batchFilter === "All" || s.batch_id === batchFilter);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Certificate Issuance</h1>
           <p className="text-slate-500">Upload PDF certificates for eligible students.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={batchFilter}
+            onChange={(e) => setBatchFilter(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white max-w-[200px] truncate"
+          >
+            <option value="All">All Batches</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -123,7 +147,7 @@ Admin Team`);
             <div className="flex justify-center items-center h-48">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
-          ) : students.length === 0 ? (
+          ) : filteredStudents.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-slate-500">
               <User className="w-10 h-10 mb-3 text-slate-300" />
               <p className="font-medium">No eligible students yet.</p>
@@ -140,7 +164,7 @@ Admin Team`);
                 </tr>
               </thead>
               <tbody>
-                {students.map((report) => {
+                {filteredStudents.map((report) => {
                   const hasCertificate = uploadedFiles.includes(`${report.student_id}.pdf`);
                   return (
                     <tr key={report.id} className="border-b border-slate-100 hover:bg-slate-50">

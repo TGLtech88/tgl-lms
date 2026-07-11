@@ -24,6 +24,7 @@ export default function AdminAttendance() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);
   const [isRecordsOpen, setIsRecordsOpen] = useState(false);
+  const [batchFilter, setBatchFilter] = useState("All");
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportBatchId, setExportBatchId] = useState('');
@@ -314,14 +315,26 @@ export default function AdminAttendance() {
     }
   };
 
+  const filteredSessions = sessions.filter(session => batchFilter === "All" || session.batch_id === batchFilter);
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Attendance Management</h1>
           <p className="text-sm text-slate-500 mt-1">Manage and approve attendance sessions</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={batchFilter}
+            onChange={(e) => setBatchFilter(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white max-w-[200px] text-sm"
+          >
+            <option value="All">All Batches</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
           <Button variant="outline" onClick={() => setIsExportOpen(true)} className="gap-2">
             <Download className="h-4 w-4" />
             Export Batch Summary
@@ -352,14 +365,14 @@ export default function AdminAttendance() {
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   </td>
                 </tr>
-              ) : sessions.length === 0 ? (
+              ) : filteredSessions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                     No sessions found.
                   </td>
                 </tr>
               ) : (
-                sessions.map(session => (
+                filteredSessions.map(session => (
                   <tr key={session.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{formatDate(session.session_date)}</td>
                     <td className="px-6 py-4 text-slate-600">{session.batches?.name}</td>

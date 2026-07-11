@@ -19,14 +19,22 @@ export default function AdminReports() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [batchFilter, setBatchFilter] = useState("All");
 
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [batches, setBatches] = useState<any[]>([]);
 
   useEffect(() => {
     loadReports();
+    loadBatches();
   }, []);
+
+  const loadBatches = async () => {
+    const { data } = await supabase.from("batches").select("id, name").order("name");
+    if (data) setBatches(data);
+  };
 
   const loadReports = async () => {
     try {
@@ -57,7 +65,8 @@ export default function AdminReports() {
       r.profiles?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       r.profiles?.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || r.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesBatch = batchFilter === "All" || r.batch_id === batchFilter;
+    return matchesSearch && matchesStatus && matchesBatch;
   });
 
   const getStatusBadge = (status: string) => {
@@ -182,6 +191,16 @@ export default function AdminReports() {
           </div>
           <div className="flex items-center gap-2">
             <Filter className="h-5 w-5 text-slate-400" />
+            <select
+              value={batchFilter}
+              onChange={(e) => setBatchFilter(e.target.value)}
+              className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white max-w-[200px] truncate"
+            >
+              <option value="All">All Batches</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

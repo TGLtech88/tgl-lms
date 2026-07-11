@@ -17,6 +17,7 @@ export default function ContentScheduler() {
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [previewPost, setPreviewPost] = useState<any>(null);
+  const [batchFilter, setBatchFilter] = useState("All");
   
   const [formData, setFormData] = useState({
     title: '',
@@ -33,6 +34,12 @@ export default function ContentScheduler() {
     start_date: '',
     interval_days: 1,
     json_content: 'Module 1: Getting Started\nModule 2: Core Concepts\nModule 3: Advanced Topics'
+  });
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importData, setImportData] = useState({
+    source_batch_id: '',
+    target_batch_id: ''
   });
 
   useEffect(() => {
@@ -194,14 +201,78 @@ export default function ContentScheduler() {
     }
   };
 
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importData.source_batch_id || !importData.target_batch_id) {
+      return toast.error("Please select both source and target batches");
+    }
+    if (importData.source_batch_id === importData.target_batch_id) {
+      return toast.error("Source and target batches must be different");
+    }
+
+    try {
+      setIsSubmitting(true);
+      const { data: user } = await supabase.auth.getUser();
+
+      const { data: sourceContent, error: fetchError } = await supabase
+        .from('content_posts')
+        .select('*')
+        .eq('batch_id', importData.source_batch_id)
+        .order('release_date', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      if (!sourceContent || sourceContent.length === 0) {
+        return toast.error("No content found in the source batch");
+      }
+
+      const inserts = sourceContent.map(item => ({
+        title: item.title,
+        description: item.description,
+        batch_id: importData.target_batch_id,
+        release_date: item.release_date,
+        is_published: false,
+        attachments: item.attachments,
+        created_by: user.user?.id
+      }));
+
+      const { error: insertError } = await supabase.from('content_posts').insert(inserts);
+      if (insertError) throw insertError;
+
+      toast.success(`Successfully imported ${inserts.length} posts. Please update their release dates.`);
+      setIsImportModalOpen(false);
+      setImportData({ source_batch_id: '', target_batch_id: '' });
+      fetchData();
+    } catch (err: any) {
+      toast.error('Failed to import content: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+    const filteredPosts = posts.filter(post => batchFilter === "All" || post.batch_id === batchFilter);
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Content Scheduler</h1>
           <p className="text-sm text-slate-500 mt-1">Schedule and manage learning materials</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={batchFilter}
+            onChange={(e) => setBatchFilter(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white max-w-[200px] text-sm"
+          >
+            <option value="All">All Batches</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <Button variant="outline" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
+            <FileUp className="h-4 w-4" />
+            Import from Batch
+          </Button>
           <Button variant="outline" className="gap-2" onClick={() => setIsBulkModalOpen(true)}>
             <FileUp className="h-4 w-4" />
             Bulk Upload
@@ -236,14 +307,14 @@ export default function ContentScheduler() {
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   </td>
                 </tr>
-              ) : posts.length === 0 ? (
+              ) : filteredPosts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                     No scheduled content found.
                   </td>
                 </tr>
               ) : (
-                posts.map(post => (
+                filteredPosts.map(post => (
                   <tr key={post.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{post.title}</td>
                     <td className="px-6 py-4 text-slate-600">{post.batches?.name}</td>
@@ -514,6 +585,45 @@ export default function ContentScheduler() {
           <div className="flex justify-end pt-4 gap-3">
             <Button type="button" variant="outline" onClick={() => setIsBulkModalOpen(false)}>Cancel</Button>
             <Button type="submit" isLoading={isSubmitting}>Upload & Schedule</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog isOpen={isImportModalOpen} onClose={() => !isSubmitting && setIsImportModalOpen(false)} title="Import Content from Batch" description="Copy all content from a previous batch to another batch.">
+        <form onSubmit={handleImportSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="source_batch">Source Batch (Copy from)</Label>
+            <select 
+              id="source_batch"
+              required
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              value={importData.source_batch_id}
+              onChange={e => setImportData({...importData, source_batch_id: e.target.value})}
+            >
+              <option value="">Select a batch...</option>
+              {batches.map(batch => (
+                <option key={batch.id} value={batch.id}>{batch.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="target_batch">Target Batch (Copy to)</Label>
+            <select 
+              id="target_batch"
+              required
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              value={importData.target_batch_id}
+              onChange={e => setImportData({...importData, target_batch_id: e.target.value})}
+            >
+              <option value="">Select a batch...</option>
+              {batches.map(batch => (
+                <option key={batch.id} value={batch.id}>{batch.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end pt-4 gap-3">
+            <Button type="button" variant="outline" onClick={() => setIsImportModalOpen(false)}>Cancel</Button>
+            <Button type="submit" isLoading={isSubmitting}>Import Content</Button>
           </div>
         </form>
       </Dialog>
