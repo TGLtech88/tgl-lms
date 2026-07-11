@@ -123,7 +123,7 @@ export default function StudentDashboard() {
           if (progressRes?.data) {
             useContentStore
               .getState()
-              .setCompletedModules(progressRes.data.map((p) => p.post_id));
+              .setCompletedModules(progressRes.data.map((p: { post_id: any; }) => p.post_id));
           }
 
           setData({

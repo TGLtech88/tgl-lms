@@ -86,13 +86,12 @@ export default function AdminCertificates() {
         .from('journals')
         .getPublicUrl(`certificates/${studentId}.pdf`);
      
-     const subject = encodeURIComponent(`Your Certificate of Completion - ${student.batches?.name}`);
+     const subject = encodeURIComponent(`Your Certificate of Completion - IoT & Embedded Systems ${student.batches?.name}`);
      const body = encodeURIComponent(`Dear ${student.profiles?.full_name},
 
-Congratulations on successfully completing the ${student.batches?.name} program!
+Congratulations on successfully completing the IoT & Embedded Systems ${student.batches?.name} program!
 
-You can download your certificate of completion using the link below:
-${urlData.publicUrl}
+You can find your certificate of completion attached below.
 
 Best regards,
 Admin Team`);
