@@ -107,7 +107,7 @@ export default function AdminDashboard() {
 
       setBatchStats({
         totalStudents: students.length,
-        //activeStudents: uniqueActive, // those who submitted journals recently
+        // activeStudents: uniqueActive, // those who submitted journals recently
         reportsSubmitted: submittedCount,
         reportsPending: pendingCount
       });
@@ -223,14 +223,18 @@ export default function AdminDashboard() {
             {batches.map(batch => (
               <Card 
                 key={batch.id} 
-                className="cursor-pointer hover:border-blue-500 transition-colors shadow-sm"
+                className="cursor-pointer hover:border-blue-500 transition-colors shadow-sm overflow-hidden"
                 onClick={() => setSelectedBatch(batch)}
               >
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-bold text-slate-900">{batch.name}</CardTitle>
+                  <CardTitle className="text-lg font-bold text-slate-900 break-words whitespace-normal">
+                    {batch.name}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-slate-600 mb-4">{batch.description || "No description"}</p>
+                  <p className="text-sm text-slate-600 mb-4 break-words whitespace-normal">
+                    {batch.description || "No description"}
+                  </p>
                   <div className="flex items-center text-sm font-medium text-blue-600">
                     View Progress <ChevronRight className="h-4 w-4 ml-1" />
                   </div>

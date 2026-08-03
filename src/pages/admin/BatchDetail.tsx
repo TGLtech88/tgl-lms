@@ -78,22 +78,15 @@ export default function BatchDetail() {
       if (existingProfile) {
         userId = existingProfile.id;
 
-        // Check their current batches to see if they are active
+        // Check if they are already enrolled in THIS batch
         const { data: enrollments } = await supabase
           .from('batch_students')
-          .select('batch_id, batches(end_date)')
-          .eq('student_id', userId);
+          .select('batch_id')
+          .eq('student_id', userId)
+          .eq('batch_id', id);
         
         if (enrollments && enrollments.length > 0) {
-          const today = new Date().toISOString().split("T")[0];
-          const hasActiveBatch = enrollments.some(enrollment => {
-            const batchInfo = enrollment.batches as any;
-            return !batchInfo?.end_date || batchInfo.end_date >= today;
-          });
-
-          if (hasActiveBatch) {
-            throw new Error("Student already exists and is currently enrolled in an active batch.");
-          }
+          throw new Error("Student is already enrolled in this specific batch.");
         }
         
         // If we get here, they exist but all their batches have ended.

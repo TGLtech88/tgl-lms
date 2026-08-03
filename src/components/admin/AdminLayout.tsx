@@ -36,28 +36,26 @@ export function AdminLayout() {
 
   const SidebarContent = () => (
     <>
-      <div className="p-8 flex-1 overflow-y-auto">
-        <div className="flex items-center gap-2 mb-5">
-          <div className="-mx-8 mb-6">
-  <img
-    src="/logo.jpg"
-    alt="TGL Technologies"
-    className="w-full h-auto object-contain px-4"
-  />
-</div>
-        </div>
+      <div className="p-6 flex-1 overflow-y-auto">
+  <div className="flex items-center mb-10 pl-2">
+    <img
+      src="/logot.png"
+      alt="TGL Tech"
+      className="h-20 w-100 object-contain"
+    />
+  </div>
 
-        <nav className="space-y-6">
+        <nav className="space-y-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               onClick={() => setIsMobileMenuOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 transition-colors ${
+                `flex items-center gap-3 transition-colors px-3 py-2.5 rounded-lg group ${
                   isActive
-                    ? 'text-[#2563EB] font-medium'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-blue-50 text-blue-600 font-medium'
+                    : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
                 }`
               }
             >
@@ -68,10 +66,10 @@ export function AdminLayout() {
         </nav>
       </div>
 
-      <div className="p-8 border-t border-slate-800 shrink-0">
+      <div className="p-6 border-t border-slate-200 shrink-0">
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 w-full text-slate-400 hover:text-white transition-colors text-left"
+          className="flex items-center gap-3 w-full text-slate-600 hover:text-red-600 transition-colors text-left px-3 py-2.5 rounded-lg hover:bg-red-50"
         >
           <LogOut className="h-5 w-5" />
           Sign Out
@@ -83,7 +81,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-[#0F172A] text-white fixed h-full z-10 transition-colors">
+      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 fixed h-full z-10 transition-colors">
         <SidebarContent />
       </aside>
 
@@ -101,7 +99,7 @@ export function AdminLayout() {
         </div>
 
         {/* Desktop Top Header */}
-        <header className="hidden lg:flex h-20 bg-white border-b items-center justify-between px-10 shrink-0">
+        <header className="hidden lg:flex h-20 bg-white border-b border-slate-200 items-center justify-between px-10 shrink-0">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Admin Dashboard</h2>
             <p className="text-sm text-slate-500 font-medium tracking-wide uppercase">{profile.role.replace('_', ' ')}</p>
@@ -118,7 +116,7 @@ export function AdminLayout() {
 
         {isMobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 z-10 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}>
-            <div className="absolute top-16 left-0 right-0 bg-[#0F172A] text-white flex flex-col h-[calc(100vh-4rem)]" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-16 left-0 right-0 bg-white border-b border-slate-200 flex flex-col h-[calc(100vh-4rem)]" onClick={e => e.stopPropagation()}>
               <SidebarContent />
             </div>
           </div>
