@@ -10,11 +10,13 @@ import {
   Award,
   Link as LinkIcon,
   ExternalLink,
-  Download
+  Download,
+  FileText
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ReportBuilder } from "../../components/student/ReportBuilder";
 
 export default function StudentReport() {
   const { profile } = useAuthStore();
@@ -27,11 +29,11 @@ export default function StudentReport() {
   const [generatingCert, setGeneratingCert] = useState(false);
   const [studentBatch, setStudentBatch] = useState<any>(null);
   const [certificateUrl, setCertificateUrl] = useState<string | null>(null);
+  const [showBuilder, setShowBuilder] = useState(false);
 
   useEffect(() => {
     async function loadReport() {
       if (!profile?.id) return;
-
       try {
         setLoading(true);
         let { data, error: fetchError } = await supabase
@@ -50,18 +52,28 @@ export default function StudentReport() {
         const { data: batchData } = await supabase
             .from("batch_students")
             .select("batch_id, batches (name, start_date, end_date)")
-            .eq("student_id", profile.id)
-            .maybeSingle();
+            .eq("student_id", profile.id);
             
-        if (batchData?.batches) {
-            setStudentBatch(batchData.batches);
+        if (batchData && batchData.length > 0) {
+            const today = new Date().toISOString().split("T")[0];
+            let activeBatch = batchData.find((b: any) => {
+              const batchInfo = b.batches as any;
+              return !batchInfo?.end_date || batchInfo.end_date >= today;
+            });
+            
+            if (!activeBatch) {
+              activeBatch = batchData[batchData.length - 1]; // fallback
+            }
+            if (activeBatch?.batches) {
+              setStudentBatch(activeBatch.batches);
+            }
         }
 
         const { data: certFiles } = await supabase.storage.from('journals').list('certificates', {
             search: profile.id
         });
         
-        if (certFiles && certFiles.some(f => f.name === `${profile.id}.pdf`)) {
+        if (certFiles && certFiles.some((f: any) => f.name === `${profile.id}.pdf`)) {
             const { data: urlData } = supabase.storage.from('journals').getPublicUrl(`certificates/${profile.id}.pdf`);
             if (urlData) {
                 setCertificateUrl(urlData.publicUrl);
@@ -77,7 +89,7 @@ export default function StudentReport() {
               .insert([
                 {
                   student_id: profile.id,
-                  batch_id: batchData?.batch_id || null,
+                  batch_id: batchData?.[0]?.batch_id || null,
                   status: "Draft",
                 },
               ])
@@ -108,7 +120,7 @@ export default function StudentReport() {
         .from("project_reports")
         .update({
           title: report.title,
-          description: report.description, // using description field to store document URL
+          description: report.description,
           updated_at: new Date().toISOString(),
         })
         .eq("student_id", profile.id)
@@ -122,22 +134,17 @@ export default function StudentReport() {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save. Ensure columns exist on Supabase.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleSubmitForReview = async () => {
-    if (!profile || !report?.title || !report?.description) {
-      toast.error("Please provide both Title and a Document Link/File to submit.");
+    if (!profile || !report?.id) return;
+    if (!report.title || !report.description) {
+      toast.error("Please fill in both title and provide a document link/upload");
       return;
     }
-    
-    if (unsavedChanges) {
-      await handleSave();
-    }
-
     setSaving(true);
     try {
       const { error } = await supabase
@@ -159,68 +166,21 @@ export default function StudentReport() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check size limit (max 10MB approx)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("File is too large. Please upload < 10MB or provide a Drive link.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `reports/${profile?.id}_${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('journals') // using the existing journals bucket
-        .upload(fileName, file);
-
-      if (uploadError) {
-        toast.error("Upload failed. Make sure the 'journals' bucket exists and is public.");
-        throw uploadError;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('journals')
-        .getPublicUrl(fileName);
-
-      setReport((prev: any) => ({ ...prev, description: urlData.publicUrl }));
-      setUnsavedChanges(true);
-      toast.success("File uploaded successfully");
-    } catch (error) {
-      console.error("Upload error", error);
-    } finally {
-      setSaving(false);
-      event.target.value = ''; // Reset input
-    }
-  };
-
   const downloadCertPdf = () => {
     if (!certificateUrl) {
-       toast.error("Certificate not uploaded yet.");
-       return;
+        toast.error("Certificate not found");
+        return;
     }
-    
-    // We can just open it in a new tab or trigger download
     window.open(certificateUrl, '_blank');
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
-
-  if (!report)
-    return (
-      <div className="text-center py-12 text-slate-500">
-        Could not initialize report editor.
-      </div>
-    );
+  }
 
   const isReadOnly =
     report?.status === "Approved" || report?.status === "Completed" || report?.status === "Under Review";
@@ -229,27 +189,25 @@ export default function StudentReport() {
     <div className="space-y-6 flex flex-col min-h-[calc(100vh-8rem)]">
       <div className="flex items-center justify-between shrink-0 flex-wrap gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">
-              Project Report Submission
-            </h1>
-            {report.status && (
-              <span
-                className={`px-2 py-1 text-xs font-semibold rounded-md ${
-                  report.status === "Approved" || report.status === "Completed"
-                    ? "bg-green-100 text-green-700"
-                    : report.status === "Under Review"
-                      ? "bg-blue-100 text-blue-700"
-                      : report.status === "Rejected"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-slate-100 text-slate-700"
-                }`}
-              >
-                {report.status}
-              </span>
-            )}
-          </div>
-          <p className="text-slate-500">
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+            Project Report Submission
+          </h1>
+          {report?.status && (
+            <span
+              className={`px-2 py-1 text-xs font-semibold rounded-md ${
+                report.status === "Approved" || report.status === "Completed"
+                  ? "bg-green-100 text-green-700"
+                  : report.status === "Under Review"
+                    ? "bg-blue-100 text-blue-700"
+                    : report.status === "Rejected"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              {report.status}
+            </span>
+          )}
+          <p className="text-slate-500 mt-2">
             Submit your final project document (PDF) or Google Drive link for review.
           </p>
         </div>
@@ -281,20 +239,20 @@ export default function StudentReport() {
             </Button>
           )}
 
-          {report.status !== "Approved" && report.status !== "Completed" && (
+          {report?.status !== "Approved" && report?.status !== "Completed" && (
             <Button
               onClick={handleSubmitForReview}
-              disabled={saving || report.status === "Under Review"}
+              disabled={saving || report?.status === "Under Review"}
               className="gap-2 bg-[#2563EB] hover:bg-blue-700 text-white"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {report.status === "Under Review" ? "Submitted" : "Submit for Review"}
+              {report?.status === "Under Review" ? "Submitted" : "Submit for Review"}
             </Button>
           )}
         </div>
       </div>
 
-      {report.admin_feedback && (report.status === "Draft" || report.status === "Rejected") && (
+      {report?.admin_feedback && (report.status === "Draft" || report.status === "Rejected") && (
         <div className={`p-4 border rounded-xl flex gap-3 mb-6 shrink-0 ${report.status === "Rejected" ? "bg-red-50 border-red-200 text-red-800" : "bg-orange-50 border-orange-200 text-orange-800"}`}>
           <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${report.status === "Rejected" ? "text-red-500" : "text-orange-500"}`} />
           <div>
@@ -305,7 +263,7 @@ export default function StudentReport() {
       )}
 
       {/* Certificate Panel if Approved/Completed */}
-      {(report.status === 'Approved' || report.status === 'Completed') && certificateUrl && (
+      {(report?.status === 'Approved' || report?.status === 'Completed') && certificateUrl && (
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-xl overflow-hidden mb-6 shrink-0">
           <div className="p-8 sm:p-12 text-center text-white flex flex-col items-center">
             <Award className="w-16 h-16 mb-4 text-indigo-100" />
@@ -324,7 +282,7 @@ export default function StudentReport() {
         </div>
       )}
       
-      {(report.status === 'Approved' || report.status === 'Completed') && !certificateUrl && (
+      {(report?.status === 'Approved' || report?.status === 'Completed') && !certificateUrl && (
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-xl overflow-hidden mb-6 shrink-0">
           <div className="p-8 sm:p-12 text-center text-white flex flex-col items-center">
             <Award className="w-16 h-16 mb-4 text-blue-100" />
@@ -362,73 +320,72 @@ export default function StudentReport() {
               Project Report Document
             </label>
             <p className="text-sm text-slate-500 mb-4">
-              Upload your report as a PDF file, or paste a public Google Drive link to your document.
+              Upload your report to Google Drive and paste the public link below, or use the online builder to generate your PDF.
             </p>
 
-            {!isReadOnly && (
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="relative flex-1">
-                  <input 
-                    type="file" 
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileUpload}
-                    disabled={saving || isReadOnly}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                  />
-                  <Button 
-                    type="button"
-                    variant="outline"
-                    className="w-full h-12 gap-2 border-dashed border-2 hover:bg-slate-50 pointer-events-none"
-                  >
-                     <Upload className="w-5 h-5 text-slate-400" />
-                     Upload PDF Report (Max 10MB)
-                  </Button>
-                </div>
-                <div className="flex items-center justify-center text-slate-400 font-medium">
-                  OR
+            {showBuilder && !isReadOnly ? (
+              <ReportBuilder 
+                onComplete={() => setShowBuilder(false)} 
+                onCancel={() => setShowBuilder(false)} 
+                onDriveLinkGenerated={(link) => {
+                  setReport({ ...report, description: link });
+                  setUnsavedChanges(true);
+                  setShowBuilder(false);
+                }}
+              />
+            ) : (
+              <div>
+                {!isReadOnly && (
+                  <div className="flex gap-4 mb-4">
+                    <Button 
+                      type="button" 
+                      onClick={() => setShowBuilder(true)}
+                      className="w-full h-12 gap-2 bg-slate-800 hover:bg-slate-900 text-white"
+                    >
+                      <FileText className="w-5 h-5" />
+                      Build Report Online (Generates PDF)
+                    </Button>
+                  </div>
+                )}
+                
+                <div>
+                  <div className="relative">
+                     <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                     <input
+                       type="text"
+                       value={report?.description || ''}
+                       onChange={(e) => {
+                         setReport({ ...report, description: e.target.value });
+                         setUnsavedChanges(true);
+                       }}
+                       disabled={isReadOnly}
+                       placeholder="https://drive.google.com/file/d/..."
+                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none disabled:opacity-70"
+                     />
+                  </div>
+                  
+                  {report?.description && (
+                    <div className="mt-3 p-4 bg-blue-50 rounded-lg flex items-center justify-between border border-blue-100">
+                      <div className="flex items-center gap-3 truncate pr-4">
+                        <FileIcon className="w-5 h-5 text-blue-500 shrink-0" />
+                        <span className="text-sm font-medium text-slate-700 truncate">Document Link Attached</span>
+                      </div>
+                      <a 
+                         href={report.description} 
+                         target="_blank" 
+                         rel="noreferrer"
+                        className="shrink-0 flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        Open Link <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-
-            <div>
-              <div className="relative">
-                 <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                 <input
-                   type="text"
-                   value={report?.description || ''}
-                   onChange={(e) => {
-                     setReport({ ...report, description: e.target.value });
-                     setUnsavedChanges(true);
-                   }}
-                   disabled={isReadOnly}
-                   placeholder="https://drive.google.com/file/d/..."
-                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none disabled:opacity-70"
-                 />
-              </div>
-              
-              {report?.description && (
-                <div className="mt-3 p-4 bg-blue-50 rounded-lg flex items-center justify-between border border-blue-100">
-                  <div className="flex items-center gap-3 truncate pr-4">
-                    <FileIcon className="w-5 h-5 text-blue-500 shrink-0" />
-                    <span className="text-sm font-medium text-slate-700 truncate">Document Link Attached</span>
-                  </div>
-                  <a 
-                    href={report.description} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="shrink-0 flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
-                  >
-                    Open Link <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              )}
-            </div>
-
           </div>
-
         </div>
       </div>
-
     </div>
   );
 }
