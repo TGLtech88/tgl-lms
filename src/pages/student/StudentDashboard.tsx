@@ -51,13 +51,22 @@ export default function StudentDashboard() {
         const { data: batchQuery } = await supabase
           .from("batch_students")
           .select("batch_id, batches(name, start_date, end_date)")
-          .eq("student_id", profile.id)
-          .single();
+          .eq("student_id", profile.id);
 
-        if (batchQuery) {
-          const batchId = batchQuery.batch_id;
-          const batchInfo = batchQuery.batches as any;
+        if (batchQuery && batchQuery.length > 0) {
+          // Find the active batch, or just default to the last enrolled one
           const today = new Date().toISOString().split("T")[0];
+          let activeBatch = batchQuery.find((b: any) => {
+            const batchInfo = b.batches as any;
+            return !batchInfo?.end_date || batchInfo.end_date >= today;
+          });
+          
+          if (!activeBatch) {
+            activeBatch = batchQuery[batchQuery.length - 1]; // fallback to the latest added
+          }
+          
+          const batchId = activeBatch.batch_id;
+          const batchInfo = activeBatch.batches as any;
 
           let isBatchEnded = false;
           if (batchInfo?.end_date && batchInfo.end_date < today) {
@@ -142,7 +151,7 @@ export default function StudentDashboard() {
           }
 
           setData({
-            batchName: (batchQuery.batches as any)?.name || "Unknown Batch",
+            batchName: (activeBatch?.batches as any)?.name || "Unknown Batch",
             isBatchEnded,
             activeSession: activeSessionQuery,
             upcomingPosts: upcomingPosts || [],

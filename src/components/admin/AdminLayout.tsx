@@ -1,13 +1,14 @@
 import React from 'react';
 import { Outlet, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { LayoutDashboard, Users, Calendar, CheckSquare, Settings, LogOut, GraduationCap, Menu, X, FileText, Award, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, CheckSquare, Settings, LogOut, GraduationCap, Menu, X, FileText, Award, Bell , ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export function AdminLayout() {
   const { user, profile, loading, signOut } = useAuthStore();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -34,9 +35,9 @@ export function AdminLayout() {
     { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <>
-      <div className="p-6 flex-1 overflow-y-auto">
+       <div className="p-6 flex-1 overflow-y-auto">
   <div className="flex items-center mb-10 pl-2">
     <img
       src="/logot.png"
@@ -56,23 +57,25 @@ export function AdminLayout() {
                   isActive
                     ? 'bg-blue-50 text-blue-600 font-medium'
                     : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
-                }`
+                } ${collapsed ? 'justify-center' : ''}`
               }
+              title={collapsed ? item.label : undefined}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
             </NavLink>
           ))}
         </nav>
       </div>
 
-      <div className="p-6 border-t border-slate-200 shrink-0">
+      <div className="p-4 border-t border-slate-200 shrink-0">
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 w-full text-slate-600 hover:text-red-600 transition-colors text-left px-3 py-2.5 rounded-lg hover:bg-red-50"
+          className={`flex items-center gap-3 w-full text-slate-600 hover:text-red-600 transition-colors px-3 py-2.5 rounded-lg hover:bg-red-50 ${collapsed ? 'justify-center' : 'text-left'}`}
+          title={collapsed ? "Sign Out" : undefined}
         >
-          <LogOut className="h-5 w-5" />
-          Sign Out
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!collapsed && <span className="whitespace-nowrap">Sign Out</span>}
         </button>
       </div>
     </>
@@ -81,12 +84,18 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 fixed h-full z-10 transition-colors">
-        <SidebarContent />
+      <aside className={`hidden lg:flex flex-col bg-white border-r border-slate-200 fixed h-full z-20 transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <SidebarContent collapsed={isSidebarCollapsed} />
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -right-3 top-24 bg-white border border-slate-200 rounded-full p-1 text-slate-500 hover:text-blue-600 shadow-sm z-30 flex items-center justify-center"
+        >
+          {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:pl-64 flex flex-col h-screen overflow-hidden">
+      <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         {/* Mobile Header & Menu */}
         <div className="lg:hidden h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-2">
@@ -99,16 +108,16 @@ export function AdminLayout() {
         </div>
 
         {/* Desktop Top Header */}
-        <header className="hidden lg:flex h-20 bg-white border-b border-slate-200 items-center justify-between px-10 shrink-0">
+        <header className="hidden lg:flex h-24 bg-gradient-to-r from-blue-600 to-blue-800 border-b border-blue-700 items-center justify-between px-10 shrink-0 text-white shadow-md">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Admin Dashboard</h2>
-            <p className="text-sm text-slate-500 font-medium tracking-wide uppercase">{profile.role.replace('_', ' ')}</p>
+            <h2 className="text-2xl font-bold text-white">Welcome back, Admin! 👋</h2>
+            <p className="text-sm text-blue-100 font-medium tracking-wide uppercase">{profile.role.replace('_', ' ')}</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white backdrop-blur-sm">
               <Settings className="w-5 h-5" />
             </div>
-            <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white font-bold uppercase">
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-blue-700 font-bold uppercase shadow-sm">
               {profile.role === 'super_admin' ? 'SA' : 'S'}
             </div>
           </div>

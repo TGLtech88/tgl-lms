@@ -107,7 +107,7 @@ export default function AdminDashboard() {
 
       setBatchStats({
         totalStudents: students.length,
-        // activeStudents: uniqueActive, // those who submitted journals recently
+       // activeStudents: uniqueActive, // those who submitted journals recently
         reportsSubmitted: submittedCount,
         reportsPending: pendingCount
       });
