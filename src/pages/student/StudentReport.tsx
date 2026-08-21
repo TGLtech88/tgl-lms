@@ -150,6 +150,8 @@ export default function StudentReport() {
       const { error } = await supabase
         .from("project_reports")
         .update({
+          title: report.title,
+          description: report.description,
           status: 'Under Review',
           updated_at: new Date().toISOString(),
         })
@@ -212,7 +214,7 @@ export default function StudentReport() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
           {unsavedChanges && (
             <span className="text-sm font-medium text-orange-500 hidden sm:inline-block">
               Unsaved changes
@@ -228,7 +230,7 @@ export default function StudentReport() {
               onClick={handleSave}
               disabled={!unsavedChanges || saving}
               variant="outline"
-              className="gap-2"
+              className="gap-2 flex-1 sm:flex-none"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -242,8 +244,8 @@ export default function StudentReport() {
           {report?.status !== "Approved" && report?.status !== "Completed" && (
             <Button
               onClick={handleSubmitForReview}
+              className="flex-1 sm:flex-none gap-2 bg-[#2563EB] hover:bg-blue-700 text-white"
               disabled={saving || report?.status === "Under Review"}
-              className="gap-2 bg-[#2563EB] hover:bg-blue-700 text-white"
             >
               <CheckCircle2 className="w-4 h-4" />
               {report?.status === "Under Review" ? "Submitted" : "Submit for Review"}
@@ -295,7 +297,7 @@ export default function StudentReport() {
       )}
 
       {/* Main Submission Form */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-1 max-w-3xl">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 flex-1 max-w-3xl">
         <div className="space-y-6">
           
           <div>

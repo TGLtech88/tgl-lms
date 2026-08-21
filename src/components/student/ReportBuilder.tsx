@@ -197,18 +197,18 @@ export function ReportBuilder({ onComplete, onCancel, onDriveLinkGenerated }: Re
   };
 
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 w-full sm:w-auto">
           <FileText className="w-5 h-5 text-blue-600" />
           Project Report Builder
         </h3>
-        <Button variant="ghost" size="sm" onClick={onCancel}>Close</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} className="w-full sm:w-auto">Close</Button>
       </div>
 
       <div className="space-y-8">
         {projects.map((project, index) => (
-          <div key={project.id} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative">
+          <div key={project.id} className="bg-white p-4 sm:p-6 rounded-lg border border-slate-200 shadow-sm relative">
             {projects.length > 1 && (
               <Button 
                 variant="ghost" 
@@ -308,12 +308,12 @@ export function ReportBuilder({ onComplete, onCancel, onDriveLinkGenerated }: Re
         <Button variant="outline" onClick={addProject} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" /> Add Another Project
         </Button>
-        <div className="flex gap-4">
-          <Button onClick={generatePdf} disabled={isGenerating || isUploading} variant="outline" className="gap-2">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <Button onClick={generatePdf} disabled={isGenerating || isUploading} variant="outline" className="gap-2 w-full sm:w-auto">
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             Download PDF
           </Button>
-          <Button onClick={() => googleLogin()} disabled={isGenerating || isUploading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={() => googleLogin()} disabled={isGenerating || isUploading} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
             {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             Upload to Google Drive
           </Button>
